@@ -1,20 +1,22 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {VIEW_TYPE_EPUB} from "./EpubView";
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
+interface BookReaderSettings {
 	mySetting: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: BookReaderSettings = {
 	mySetting: 'default'
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class BookReader extends Plugin {
+	settings: BookReaderSettings;
 
 	async onload() {
 		await this.loadSettings();
+
+		// set epub extension
+		this.registerExtensions("epub", VIEW_TYPE_EPUB)
 
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (_evt: MouseEvent) => {
@@ -66,7 +68,7 @@ export default class MyPlugin extends Plugin {
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new BookReaderSettingTab(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -107,10 +109,10 @@ class SampleModal extends Modal {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+class BookReaderSettingTab extends PluginSettingTab {
+	plugin: BookReader;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: BookReader) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
