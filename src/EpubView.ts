@@ -76,12 +76,12 @@ export class EpubView extends FileView {
 		}
 
 		rendition.on("relocated", async (range: any) => {
-			console.log("page", range.start.cfi);
+			const cfi = range.start.cfi;
+			console.log("relocated", cfi);
 			if (this.file) {
-				const cfi = range.start.cfi;
-				const progress = range.start.percentage; // 0 → 1 inside chapter
-				console.log("progress",progress)
-				await this.plugin.updateFileData(this.file, cfi, progress)
+				// const progress = range.start.percentage; // 0 → 1 inside chapter
+				// console.log("progress",progress)
+				await this.plugin.updateFileData(this.file, cfi, 0)
 			}
 
 		})

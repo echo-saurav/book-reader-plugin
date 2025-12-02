@@ -51,12 +51,16 @@ export default class BookReader extends Plugin {
 
 		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath)
 		if (!isExist) {
+			console.log(`Book not found!`)
 			await this.app.vault.create(bookLinkFilePath, "")
 		}
 
-		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath)
 
+		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath)
+		console.log("bookLinkFile",bookLinkFile)
 		if (bookLinkFile) {
+			console.log("path",bookLinkFile.path)
+			console.log("base",bookLinkFile.basename)
 			await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
 				frontmatter['cfi'] = cfi
 				frontmatter['progress'] = progress
