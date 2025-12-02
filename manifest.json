@@ -1,7 +1,7 @@
 {
 	"id": "book-reader-plugin",
 	"name": "Book reader",
-	"version": "1.0.0",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
 	"description": "Read epub, pdf and annotate pages",
 	"author": "echo-saurav",
