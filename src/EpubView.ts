@@ -1,4 +1,4 @@
-import {WorkspaceLeaf, FileView, TFile, Menu, moment, IconName} from "obsidian";
+import {WorkspaceLeaf, FileView, TFile, debounce, IconName, Debouncer} from "obsidian";
 import ePub from 'epubjs';
 import BookReader from "./main"; // Ensure you import the default export
 export const VIEW_TYPE_EPUB = "epub"
@@ -6,12 +6,19 @@ export const VIEW_TYPE_EPUB = "epub"
 export class EpubView extends FileView {
 	allowNoFile: false;
 	private plugin: BookReader;
+	private debounceRun: Debouncer<[file: TFile, cfi: any, progress: number], Promise<void>>;
 
 
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
 		super(leaf);
 		this.plugin = plugin
+		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
+
+		this.debounceRun = debounce(async (file: TFile, cfi: any, progress: number) => {
+			await this.plugin.updateFileData(file, cfi, progress);
+		}, timeout, true)
 	}
+
 
 	async onLoadFile(file: TFile): Promise<void> {
 		this.file = file;
@@ -78,10 +85,9 @@ export class EpubView extends FileView {
 		rendition.on("relocated", async (range: any) => {
 			const cfi = range.start.cfi;
 			console.log("relocated", cfi);
+
 			if (this.file) {
-				// const progress = range.start.percentage; // 0 → 1 inside chapter
-				// console.log("progress",progress)
-				await this.plugin.updateFileData(this.file, cfi, 0)
+				this.debounceRun(this.file, cfi, 0)
 			}
 
 		})

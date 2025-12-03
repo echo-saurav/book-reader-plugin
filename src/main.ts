@@ -6,11 +6,14 @@ import BookReaderSettingsTab from "./BookReaderSettingsTab";
 interface BookReaderSettings {
 	bookNotesFolder: string;
 	nameTemplate: string;
+	updateDelay: number;
+
 }
 
 const DEFAULT_SETTINGS: BookReaderSettings = {
 	bookNotesFolder: '/',
-	nameTemplate: '{{filename}}-book-note.md'
+	nameTemplate: '{{filename}}-book-note.md',
+	updateDelay: 1,
 }
 
 export default class BookReader extends Plugin {
@@ -29,7 +32,6 @@ export default class BookReader extends Plugin {
 	getBookFilePath(file: TFile) {
 		const bookNoteName = this.settings.nameTemplate.replace('{{filename}}', file.name)
 		return `${this.settings.bookNotesFolder}/${bookNoteName}`
-
 	}
 
 
@@ -39,28 +41,24 @@ export default class BookReader extends Plugin {
 
 		if (!linkFile) return null
 
-		const raw = await this.app.vault.read(linkFile)
 		const fm = this.app.metadataCache.getFileCache(linkFile)?.frontmatter
-
 		return fm?.cfi ?? null
 	}
 
 
 	async updateFileData(file: TFile, cfi: string, progress: number) {
+		console.log(file, cfi, progress)
 		const bookLinkFilePath = this.getBookFilePath(file)
 
 		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath)
 		if (!isExist) {
-			console.log(`Book not found!`)
 			await this.app.vault.create(bookLinkFilePath, "")
 		}
 
 
 		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath)
-		console.log("bookLinkFile",bookLinkFile)
+
 		if (bookLinkFile) {
-			console.log("path",bookLinkFile.path)
-			console.log("base",bookLinkFile.basename)
 			await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
 				frontmatter['cfi'] = cfi
 				frontmatter['progress'] = progress

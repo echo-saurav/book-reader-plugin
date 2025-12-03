@@ -34,5 +34,16 @@ export default class BookReaderSettingsTab extends PluginSettingTab {
 					this.plugin.settings.nameTemplate = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Delay in second for saving progress')
+			.setDesc("Set a delay for saving (why: some time we scroll through books without reading them)")
+			.addText(text => text
+				.setPlaceholder('1')
+				.setValue(String(this.plugin.settings.updateDelay))
+				.onChange(async (value) => {
+					this.plugin.settings.updateDelay = Number(value);
+					await this.plugin.saveSettings();
+				}));
 	}
 }
