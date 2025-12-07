@@ -1,6 +1,7 @@
 import {Notice, Plugin, stringifyYaml, TFile, WorkspaceLeaf} from 'obsidian';
 import {EpubView, VIEW_TYPE_EPUB} from "./EpubView";
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
+import {ChapterModal} from "./ChapterModal";
 
 
 interface BookReaderSettings {
@@ -34,20 +35,28 @@ export default class BookReader extends Plugin {
 		return `${this.settings.bookNotesFolder}/${bookNoteName}`
 	}
 
-
-	async getCurrentBookRef(file: TFile) {
+	getFileFrontmatter(file: TFile) {
 		const bookLinkPath = this.getBookFilePath(file)
 		const linkFile = this.app.vault.getFileByPath(bookLinkPath)
 
 		if (!linkFile) return null
 
-		const fm = this.app.metadataCache.getFileCache(linkFile)?.frontmatter
+		return this.app.metadataCache.getFileCache(linkFile)?.frontmatter
+	}
+
+
+	getCurrentBookRef(file: TFile) {
+		const fm = this.getFileFrontmatter(file)
 		return fm?.cfi ?? null
+	}
+
+	getOldBookRef(file: TFile) {
+		const fm = this.getFileFrontmatter(file)
+		return fm?.pastCfi ?? null
 	}
 
 
 	async updateFileData(file: TFile, cfi: string, progress: number) {
-		console.log(file, cfi, progress)
 		const bookLinkFilePath = this.getBookFilePath(file)
 
 		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath)
@@ -60,8 +69,15 @@ export default class BookReader extends Plugin {
 
 		if (bookLinkFile) {
 			await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
-				frontmatter['cfi'] = cfi
-				frontmatter['progress'] = progress
+				const pastCfi = frontmatter.cfi
+				frontmatter.cfi = cfi
+				if (pastCfi) {
+					frontmatter.pastCfi = pastCfi
+				}
+				frontmatter.progress = progress
+
+				// frontmatter['cfi'] = cfi
+				// frontmatter['progress'] = progress
 			})
 		}
 	}

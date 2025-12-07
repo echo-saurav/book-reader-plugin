@@ -1,17 +1,22 @@
-import {WorkspaceLeaf, FileView, TFile, debounce, IconName, Debouncer} from "obsidian";
-import ePub from 'epubjs';
-import BookReader from "./main"; // Ensure you import the default export
+import {WorkspaceLeaf, FileView, TFile, debounce, IconName, setIcon, Debouncer} from "obsidian";
+import ePub, {NavItem, Rendition} from 'epubjs';
+import BookReader from "./main";
+import {ChapterModal} from "./ChapterModal"; // Ensure you import the default export
 export const VIEW_TYPE_EPUB = "epub"
 
 export class EpubView extends FileView {
 	allowNoFile: false;
+	private rendition: Rendition
 	private plugin: BookReader;
 	private debounceRun: Debouncer<[file: TFile, cfi: any, progress: number], Promise<void>>;
+	private nextButton: HTMLElement;
+	private prevButton: HTMLElement;
+	chapters: NavItem[] = [];
 
 
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
 		super(leaf);
-		this.plugin = plugin
+		this.plugin = plugin;
 		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
 
 		this.debounceRun = debounce(async (file: TFile, cfi: any, progress: number) => {
@@ -19,17 +24,92 @@ export class EpubView extends FileView {
 		}, timeout, true)
 	}
 
-
-	async onLoadFile(file: TFile): Promise<void> {
-		this.file = file;
+	createView(): HTMLElement {
 		const container = this.contentEl;
 		container.empty();
 
 		// Create a wrapper div
 		const epubDiv = container.createEl('div', {cls: 'epub-view'});
-		const nextButton = epubDiv.createEl('div', {cls: 'epub-view__next-button'});
-		const prevButton = epubDiv.createEl('div', {cls: 'epub-view__previous-button'});
-		// const btn = epubDiv.createEl('div', {cls: 'epub-view_button'});
+		// const nextButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__next-button', 'epub-button']}
+		// );
+		// const prevButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__previous-button', 'epub-button']}
+		// );
+		const lastButton = epubDiv.createEl('div',
+			{cls: ['epub-view__last-button', 'epub-button']}
+		);
+		const menuButton = epubDiv.createEl('div',
+			{cls: ['epub-view__menu-button', 'epub-button']}
+		);
+
+		const bottomBar = epubDiv.createEl('div',
+			{cls: 'epub-view-bottom-bar'}
+		);
+		bottomBar.createEl('p', {text: "Page no 10"});
+
+		// set all the icon
+		// setIcon(prevButton, 'chevron-left');
+		// setIcon(nextButton, 'chevron-right');
+		setIcon(lastButton, 'undo-2');
+		setIcon(menuButton, 'menu');
+		//
+		// epubDiv.addEventListener('mousemove', (event) => {
+		// 	const clientX = event.clientX;
+		// 	const clientY = event.clientY;
+		//
+		// 	// You can also get coordinates relative to the element itself
+		// 	// const rect = myDiv.getBoundingClientRect();
+		// 	// const xInsideDiv = clientX - rect.left;
+		// 	// const yInsideDiv = clientY - rect.top;
+		// 	//
+		// 	// mouseCoordsDisplay.textContent = `X: ${clientX}, Y: ${clientY}`;
+		// 	// menuButton.style.animation = 'none'; // reset
+		// 	// // void menu.offsetWidth;         // trigger reflow
+		// 	// menuButton.style.animation = 'appear-animation 2s forwards';
+		// 	console.log(`X: ${clientX}, Y: ${clientY}`);
+		// });
+
+		// this.nextButton = nextButton;
+		// this.prevButton = prevButton;
+
+		menuButton.addEventListener('click', () => {
+			new ChapterModal(this.app, this.chapters, null, async (chapterRef: NavItem) => {
+				await this.rendition.display(chapterRef.href)
+			}).open();
+		});
+
+		return epubDiv
+	}
+
+
+	async onLoadFile(file: TFile): Promise<void> {
+		this.file = file;
+		// const container = this.contentEl;
+		// container.empty();
+		//
+		// // Create a wrapper div
+		// const epubDiv = container.createEl('div', {cls: 'epub-view'});
+		// const nextButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__next-button', 'epub-button']}
+		// );
+		// const prevButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__previous-button', 'epub-button']}
+		// );
+		// const lastButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__last-button', 'epub-button']}
+		// );
+		// const menuButton = epubDiv.createEl('div',
+		// 	{cls: ['epub-view__menu-button', 'epub-button']}
+		// );
+		//
+		// setIcon(prevButton, 'chevron-left');
+		// setIcon(nextButton, 'chevron-right');
+		// setIcon(lastButton, 'undo-2');
+		// setIcon(menuButton, 'menu');
+		// // const btn = epubDiv.createEl('div', {cls: 'epub-view_button'});
+
+		const epubDiv = this.createView()
 
 		// Read file as binary
 		const contents = await this.app.vault.readBinary(file);
@@ -48,7 +128,7 @@ export class EpubView extends FileView {
 
 		ro.observe(epubDiv);
 
-		const rendition = book.renderTo(epubDiv, {
+		this.rendition = book.renderTo(epubDiv, {
 			width: "100%",
 			height: "796.78125",
 			allowScriptedContent: true,
@@ -58,11 +138,15 @@ export class EpubView extends FileView {
 
 		});
 
-		rendition.themes.default({
+		this.rendition.themes.default({
+			html: {
+				"padding": "100px 0 0 0 !important"
+			},
 			body: {
 				"font-family": "var(--font-text)",
 				"color": "var(--h1-color)",
-				"line-height": "1.6"
+				"line-height": "1.6",
+
 			},
 			p: {
 				"color": `${getComputedStyle(document.body).getPropertyValue('--text-normal')};`,
@@ -76,13 +160,13 @@ export class EpubView extends FileView {
 
 		if (pageRef) {
 			console.log(`page: ${pageRef}`);
-			await rendition.display(pageRef);
+			await this.rendition.display(pageRef);
 		} else {
 			console.log(`showing from start ${pageRef}`);
-			await rendition.display();
+			await this.rendition.display();
 		}
 
-		rendition.on("relocated", async (range: any) => {
+		this.rendition.on("relocated", async (range: any) => {
 			const cfi = range.start.cfi;
 			console.log("relocated", cfi);
 
@@ -92,22 +176,29 @@ export class EpubView extends FileView {
 
 		})
 
-		nextButton.addEventListener('click', async () => {
-			await rendition.next();
+		if (this.nextButton && this.prevButton) {
+			this.nextButton.addEventListener('click', async () => {
+				await this.rendition.next();
 
-		})
-		prevButton.addEventListener('click', async () => {
-			await rendition.prev();
-		})
+			})
+
+			this.prevButton.addEventListener('click', async () => {
+				await this.rendition.prev();
+			})
+		}
+
 
 		//
-		// await book.ready; // make sure book is loaded
-		// const toc = book.navigation.toc; // array of chapters
-		//
-		//
-		// toc.forEach((chapter, i) => {
-		// 	// console.log(i, chapter.label, chapter.href, chapter.id);
-		// });
+		await book.ready; // make sure book is loaded
+		const toc = book.navigation.toc; // array of chapters
+
+
+		this.chapters = [];
+		toc.forEach((chapter, i) => {
+			console.log(chapter);
+			this.chapters.push(chapter)
+			// console.log(i, chapter.label, chapter.href, chapter.id);
+		});
 
 		// btn.addEventListener('click', async () => {
 		// 	await rendition.display(10)
