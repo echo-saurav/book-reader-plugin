@@ -1,7 +1,6 @@
-import {Notice, Plugin, stringifyYaml, TFile, WorkspaceLeaf} from 'obsidian';
-import {EpubView, VIEW_TYPE_EPUB} from "./EpubView";
+import {Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
-import {ChapterModal} from "./ChapterModal";
+import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
 
 
 interface BookReaderSettings {
@@ -23,21 +22,21 @@ export default class BookReader extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		this.addSettingTab(new BookReaderSettingsTab(this.app, this))
-		this.registerExtensions(["epub"], VIEW_TYPE_EPUB)
+		this.addSettingTab(new BookReaderSettingsTab(this.app, this));
+		this.registerExtensions(["epub"], VIEW_TYPE_EPUB);
 		this.registerView(VIEW_TYPE_EPUB, (leaf: WorkspaceLeaf) => {
-			return new EpubView(leaf, this);
-		})
+			return new EpubViewer(leaf, this);
+		});
 	}
 
 	getBookFilePath(file: TFile) {
-		const bookNoteName = this.settings.nameTemplate.replace('{{filename}}', file.name)
-		return `${this.settings.bookNotesFolder}/${bookNoteName}`
+		const bookNoteName = this.settings.nameTemplate.replace('{{filename}}', file.name);
+		return `${this.settings.bookNotesFolder}/${bookNoteName}`;
 	}
 
-	getFileFrontmatter(file: TFile) {
-		const bookLinkPath = this.getBookFilePath(file)
-		const linkFile = this.app.vault.getFileByPath(bookLinkPath)
+	getFrontmatter(file: TFile) {
+		const bookLinkPath = this.getBookFilePath(file);
+		const linkFile = this.app.vault.getFileByPath(bookLinkPath);
 
 		if (!linkFile) return null
 
@@ -45,41 +44,30 @@ export default class BookReader extends Plugin {
 	}
 
 
-	getCurrentBookRef(file: TFile) {
-		const fm = this.getFileFrontmatter(file)
+	getBookPageRef(file: TFile) {
+		const fm = this.getFrontmatter(file)
 		return fm?.cfi ?? null
 	}
 
-	getOldBookRef(file: TFile) {
-		const fm = this.getFileFrontmatter(file)
-		return fm?.pastCfi ?? null
+
+	async updatePage(file: TFile, cfi: string) {
+		console.log('updatePage', cfi)
+		const bookLinkFilePath = this.getBookFilePath(file);
+		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
+		if (!isExist) {
+			await this.app.vault.create(bookLinkFilePath, "");
+		}
+
+		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
+		if (!bookLinkFile) return null
+
+		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
+			frontmatter.pastCfi = frontmatter.cfi
+			frontmatter.cfi = cfi
+		});
 	}
 
-
-	async updateFileData(file: TFile, cfi: string, progress: number) {
-		const bookLinkFilePath = this.getBookFilePath(file)
-
-		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath)
-		if (!isExist) {
-			await this.app.vault.create(bookLinkFilePath, "")
-		}
-
-
-		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath)
-
-		if (bookLinkFile) {
-			await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
-				const pastCfi = frontmatter.cfi
-				frontmatter.cfi = cfi
-				if (pastCfi) {
-					frontmatter.pastCfi = pastCfi
-				}
-				frontmatter.progress = progress
-
-				// frontmatter['cfi'] = cfi
-				// frontmatter['progress'] = progress
-			})
-		}
+	onunload() {
 	}
 
 	async loadSettings() {
@@ -89,11 +77,6 @@ export default class BookReader extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-
-	onunload() {
-
-	}
-
 }
 
 
