@@ -1,13 +1,12 @@
 import {Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
-import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
+import {EpubViewer, HOVER_ID, VIEW_TYPE_EPUB} from "./EpubViewer";
 
 
 interface BookReaderSettings {
 	bookNotesFolder: string;
 	nameTemplate: string;
 	updateDelay: number;
-
 }
 
 const DEFAULT_SETTINGS: BookReaderSettings = {
@@ -27,6 +26,10 @@ export default class BookReader extends Plugin {
 		this.registerView(VIEW_TYPE_EPUB, (leaf: WorkspaceLeaf) => {
 			return new EpubViewer(leaf, this);
 		});
+		this.registerHoverLinkSource(HOVER_ID, {
+			display: 'Hooo',
+			defaultMod: true,
+		})
 	}
 
 	getBookFilePath(file: TFile) {
