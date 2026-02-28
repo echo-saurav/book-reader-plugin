@@ -70,6 +70,57 @@ export default class BookReader extends Plugin {
 		});
 	}
 
+	async addBookmark(file: TFile, cfi: string, content: string) {
+
+	}
+
+	async addHighlight(file: TFile, cfi: string) {
+		const bookLinkFilePath = this.getBookFilePath(file);
+		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
+		if (!isExist) {
+			await this.app.vault.create(bookLinkFilePath, "");
+		}
+
+		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
+		if (!bookLinkFile) return null
+
+		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
+			const highlights: string[] = frontmatter.highlights ? frontmatter.highlights : [];
+			highlights.push(cfi);
+			console.log(`highlights: ${highlights}`);
+			frontmatter.highlights = highlights
+		});
+
+	}
+
+	async getAllHighlights(file: TFile) {
+		const fm = this.getFrontmatter(file);
+		return fm?.highlights ?? []
+	}
+
+	async deleteHighlight(file: TFile, cfi: string) {
+		const bookLinkFilePath = this.getBookFilePath(file);
+		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
+		if (!isExist) {
+			await this.app.vault.create(bookLinkFilePath, "");
+		}
+
+		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
+		if (!bookLinkFile) return null
+
+		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
+			const highlights: string[] = frontmatter.highlights ? frontmatter.highlights : [];
+			highlights.remove(cfi);
+			frontmatter.highlights = highlights
+		});
+
+	}
+
+	async addNote(file: TFile, cfi: string, content: string) {
+
+	}
+
+
 	onunload() {
 	}
 

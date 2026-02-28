@@ -99,6 +99,7 @@ export class EpubViewer extends FileView {
 		//
 		this.goLastPage();
 		this.loadChapters(book);
+		this.populateHighlight(this.file);
 	}
 
 	onPageChangeListener(rendition: Rendition) {
@@ -116,6 +117,7 @@ export class EpubViewer extends FileView {
 	}
 
 	onSelectionListener(rendition: Rendition) {
+		if (!this.file) return;
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
 
 			const iframe = this.epubView.querySelector('iframe');
@@ -131,25 +133,96 @@ export class EpubViewer extends FileView {
 			const centerY = iframeRect.top + rect.top;
 
 
-			console.log(selectedText);
 			getContextMenu(
 				selectedText,
+				// highlight
+				() => {
+					if (!this.file) return;
+					this.plugin.addHighlight(this.file, cfiRange);
+					rendition.annotations.add('highlight', cfiRange, {}, () => {
+						console.log("Highlight clicked!", cfiRange);
+						const menu = new Menu();
+						menu.addItem(item => {
+							item.setTitle("Delete")
+								.setIcon("trash")
+								.onClick(() => {
+									if (!this.file) return;
+									this.plugin.deleteHighlight(this.file, cfiRange);
+									this.rendition.annotations.remove(cfiRange, 'highlight');
+								})
+						});
+
+
+						//
+						const iframe = this.epubView.querySelector('iframe');
+						if (!iframe) return;
+
+						const iframeRect = iframe.getBoundingClientRect();
+
+						const range = this.rendition.getRange(cfiRange);
+						const selectedText = range.toString();
+						const rect = range.getBoundingClientRect();
+
+						const centerX = iframeRect.left + rect.left + (rect.width / 2);
+						const centerY = iframeRect.top + rect.top;
+
+						menu.showAtPosition({x: centerX, y: centerY}, document);
+					});
+					//
+					contents.window.getSelection()?.removeAllRanges();
+
+				},
+				// bookmark
 				() => {
 				},
+				// take note
 				() => {
 				},
-				() => {
-				},
+				// delete
 				() => {
 				})
 				.showAtPosition({x: centerX, y: centerY}, document);
-
 
 
 			// clear selection
 			// contents.window.getSelection().removeAllRanges();
 		});
 
+	}
+
+	async populateHighlight(file: TFile) {
+		const allHighlights: string[] = await this.plugin.getAllHighlights(file);
+
+		for (const highlight of allHighlights) {
+			this.rendition.annotations.add('highlight', highlight, {}, (e: any) => {
+				console.log("Highlight clicked!", highlight);
+				const menu = new Menu();
+				menu.addItem(item => {
+					item.setTitle("Delete")
+						.setIcon("trash")
+						.onClick(() => {
+							this.plugin.deleteHighlight(file, highlight);
+							this.rendition.annotations.remove(highlight, 'highlight');
+						})
+				});
+
+
+				//
+				const iframe = this.epubView.querySelector('iframe');
+				if (!iframe) return;
+
+				const iframeRect = iframe.getBoundingClientRect();
+
+				const range = this.rendition.getRange(highlight);
+				const selectedText = range.toString();
+				const rect = range.getBoundingClientRect();
+
+				const centerX = iframeRect.left + rect.left + (rect.width / 2);
+				const centerY = iframeRect.top + rect.top;
+
+				menu.showAtPosition({x: centerX, y: centerY}, document);
+			});
+		}
 	}
 
 	handleResources(rendition: Rendition, book: Book) {
@@ -163,7 +236,7 @@ export class EpubViewer extends FileView {
 				const cssText = await book.load(file.href);
 				if (cssText) {
 					const style = doc.createElement('style');
-					style.textContent = await new Response(cssText).text();
+					style.textContent = await new Response(cssText.toString()).text();
 					doc.head.appendChild(style);
 				}
 			}
@@ -285,7 +358,7 @@ export class EpubViewer extends FileView {
 				if (cssText) {
 					// 3. Inject it as a style tag (which bypasses protocol blocks)
 					const style = doc.createElement('style');
-					style.textContent = await new Response(cssText).text();
+					style.textContent = await new Response(cssText.toString()).text();
 					doc.head.appendChild(style);
 				}
 			}
@@ -497,7 +570,8 @@ export class EpubViewer extends FileView {
 						console.log(cssContent);
 					} else {
 						// If it returns a Blob/Buffer, convert it to text
-						const text = await new Response(cssContent).text();
+
+						const text = await new Response(cssContent.toString()).text();
 						console.log(text);
 					}
 				} catch (err) {
