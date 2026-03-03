@@ -70,11 +70,14 @@ export default class BookReader extends Plugin {
 		});
 	}
 
-	async addBookmark(file: TFile, cfi: string, content: string) {
+	async addBookmark(file: TFile | null, cfi: string, content: string) {
+		if (!file) return
 
 	}
 
-	async addHighlight(file: TFile, cfi: string) {
+	async addHighlight(file: TFile | null, cfi: string, color: string | null) {
+		if (!file) return
+
 		const bookLinkFilePath = this.getBookFilePath(file);
 		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
 		if (!isExist) {
@@ -86,8 +89,8 @@ export default class BookReader extends Plugin {
 
 		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
 			const highlights: string[] = frontmatter.highlights ? frontmatter.highlights : [];
-			highlights.push(cfi);
-			console.log(`highlights: ${highlights}`);
+			const newHighlight = `${cfi}|${color}`
+			highlights.push(newHighlight);
 			frontmatter.highlights = highlights
 		});
 
@@ -98,7 +101,9 @@ export default class BookReader extends Plugin {
 		return fm?.highlights ?? []
 	}
 
-	async deleteHighlight(file: TFile, cfi: string) {
+	async deleteHighlight(file: TFile | null, cfi: string) {
+		if (!file) return
+
 		const bookLinkFilePath = this.getBookFilePath(file);
 		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
 		if (!isExist) {

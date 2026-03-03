@@ -4,34 +4,33 @@ export const getContextMenu = (
 	selectedText: string,
 	onHighlight: () => void,
 	onBookmark: () => void,
-	onTakeNote: () => void,
-	onDelete: () => void
+	onTakeNote: () => void
 ) => {
 
 	const menu = new Menu();
 
+	console.log("selectedText",selectedText);
 	if (selectedText) {
 		menu.addItem(item => {
 			item.setTitle(selectedText.slice(0,40).trim())
 				.setDisabled(true)
-				.setIcon("highlight")
+				.setIcon("cursor")
 		});
+		menu.addItem(item => {
+			item.setTitle('Highlight')
+				.setIcon("pen")
+				.onClick(()=>{
+					onHighlight();
+				})
+		});
+
 	}
 
 
 	menu.addItem(item => {
 		item
-			.setTitle("Highlight")
-			.setIcon("highlight")
-			.onClick(() => {
-				onHighlight();
-			});
-
-	});
-	menu.addItem(item => {
-		item
 			.setTitle("Bookmark")
-			.setIcon("highlight")
+			.setIcon("bookmark")
 			.onClick(() => {
 				onBookmark();
 			});
@@ -41,31 +40,14 @@ export const getContextMenu = (
 	menu.addItem(item => {
 		item
 			.setTitle("Take note")
-			.setIcon("pen")
+			.setIcon("file-plus-corner")
 			.onClick(() => {
 				onTakeNote();
 			});
 
 	});
 
-	menu.addItem(item => {
-		item
-			.setTitle("Delete")
-			.setIcon("trash")
-			.onClick(() => {
-				onDelete();
-			});
 
-	});
-	menu.addItem(item => {
-		item
-			.setTitle("Cancel")
-			.setIcon("close")
-			.onClick(() => {
-				menu.close();
-			});
-
-	});
 
 
 	return menu;

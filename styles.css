@@ -10,7 +10,8 @@
 }
 
 .epub-view {
-	margin-bottom: 100px;
+	/*margin-bottom: 100px;*/
+	margin:0;
 	padding: 0;
 	height: 100%;
 	width: 100%;
@@ -38,7 +39,6 @@
 }
 
 
-
 .prev {
 	position: fixed;
 	bottom: 0;
@@ -46,10 +46,17 @@
 	margin: 30px;
 }
 
+.nav-back{
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	margin-bottom: 200px;
+	margin-left: 30px;
+}
 .chapter-menu{
 	position: fixed;
 	bottom: 0;
 	left: 0;
-	margin-bottom: 50px;
+	margin-bottom: 100px;
 	margin-left: 30px;
 }

@@ -1,4 +1,4 @@
-import {WorkspaceLeaf, FileView, TFile, debounce, Debouncer, Menu} from "obsidian";
+import {WorkspaceLeaf, FileView, TFile, debounce, Debouncer, Menu, ViewStateResult, MenuPositionDef} from "obsidian";
 import ePub, {Book, Contents, Rendition} from 'epubjs';
 import BookReader from "./main";
 import {ChaptersList, Chapter} from "./ChaptersList";
@@ -20,9 +20,14 @@ export class EpubViewer extends FileView {
 	private nextButton: HTMLElement;
 	private prevButton: HTMLElement;
 	private chapterMenuButton: HTMLElement;
+	private backNavigationButton: HTMLElement;
 	//
 	private currentCfi: string;
+	private currentSelectedCfi: string
 	private isRestoring = false;
+
+	navigation = false
+	private linkHistory: string[] = []
 
 
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
@@ -53,6 +58,7 @@ export class EpubViewer extends FileView {
 		this.nextButton = this.epubContainer.createEl('button', {cls: 'epub-button next'});
 		this.prevButton = this.epubContainer.createEl('button', {cls: 'epub-button prev'});
 		this.chapterMenuButton = this.epubContainer.createEl('button', {cls: 'epub-button chapter-menu'});
+		this.backNavigationButton = this.epubContainer.createEl('button', {cls: 'epub-button nav-back'});
 		//
 		this.nextButton.addEventListener('click', async (e) => {
 			await this.rendition.next();
@@ -68,8 +74,29 @@ export class EpubViewer extends FileView {
 				this.rendition.display(cfi);
 			}).open();
 		})
+		//
+		this.backNavigationButton.addEventListener('click', async (e) => {
+			if (this.linkHistory) {
+				console.log("got history", this.linkHistory);
+				console.log("got history", this.linkHistory[this.linkHistory.length - 1]);
+				this.rendition.display(this.linkHistory[this.linkHistory.length - 1]);
+			}
+
+		})
+
 	}
 
+	async setState(state: any, result: ViewStateResult): Promise<void> {
+		// This is called when Obsidian restores a state (like clicking Back)
+		if (state.cfi && state.cfi !== this.currentCfi) {
+			this.currentCfi = state.cfi;
+			if (this.rendition) {
+				await this.rendition.display(state.cfi);
+			}
+		}
+
+		await super.setState(state, result);
+	}
 
 	async onLoadFile(file: TFile) {
 		super.load();
@@ -83,6 +110,7 @@ export class EpubViewer extends FileView {
 		const book = ePub(contents);
 		if (!book) return;
 
+		book.locations.generate(1000);
 
 		this.rendition = book.renderTo(this.epubView, {
 			width: "100%",
@@ -95,12 +123,170 @@ export class EpubViewer extends FileView {
 		this.handleResources(this.rendition, book);
 		this.applyDefaultTheme(this.rendition);
 		this.onPageChangeListener(this.rendition);
-		this.onSelectionListener(this.rendition);
+		// this.onSelectionListener(this.rendition);
+		this.onRender(this.rendition, book);
 		//
 		this.goLastPage();
 		this.loadChapters(book);
 		this.populateHighlight(this.file);
 	}
+
+	getPosition(cfi: string): MenuPositionDef {
+		const iframe = this.epubView.querySelector('iframe');
+		if (!iframe) return {x: 0, y: 0};
+
+		const iframeRect = iframe.getBoundingClientRect();
+
+		const range = this.rendition.getRange(cfi);
+		const rect = range.getBoundingClientRect();
+
+		const centerX = iframeRect.left + rect.left + (rect.width / 2);
+		const centerY = iframeRect.top + rect.top;
+
+		return {x: centerX, y: centerY}
+	}
+
+	onAddAnnotation(cfiRange: string, color: string) {
+
+		this.rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
+			const menu = new Menu()
+
+			menu.addItem(item => {
+				item.setTitle("Delete").setIcon("delete").onClick(() => {
+					this.plugin.deleteHighlight(this.file, cfiRange);
+					this.rendition.annotations.remove(cfiRange, 'highlight');
+				})
+			})
+			menu.showAtPosition(this.getPosition(cfiRange), document)
+		}, 'highlight', {'fill': color});
+	}
+
+	onRender(rendition: Rendition, book: Book) {
+		// rendition.on("selected", (cfiRange: string, contents: Contents) => {
+		// 	// Just store the range, don't show the menu yet
+		// 	this.lastSelectedCfi = cfiRange;
+		// });
+		rendition.on("selected", (cfiRange: string, contents: Contents) => {
+			this.currentSelectedCfi = cfiRange;
+		});
+
+		rendition.on('rendered', (section: any, contents: Contents) => {
+
+			// link jump history
+			contents.document.querySelectorAll('a').forEach(link => {
+				link.addEventListener('click', (ev) => {
+					const href = link.getAttribute('href');
+					if (href && href.indexOf("://") === -1) { // It's an internal link
+						ev.preventDefault();
+						// rendition.display(href);
+						const cfi = rendition.location.start.cfi
+						this.linkHistory.push(cfi);
+
+					}
+				});
+			});
+
+			// Fix for the menu not closing:
+			contents.document.addEventListener('click', (ev) => {
+				// Create a fake click event to send to the main window
+				const newEvent = new MouseEvent('mousedown', {
+					view: window,
+					bubbles: true,
+					cancelable: true,
+					clientX: ev.clientX,
+					clientY: ev.clientY
+				});
+
+				// Dispatch it on the main document so the Menu "hears" it
+				window.document.dispatchEvent(newEvent);
+			});
+
+
+			// obsidian key downs
+			contents.document.addEventListener('keydown', (ev: KeyboardEvent) => {
+				// Create a new event that looks exactly like the one in the iframe
+				const relayedEvent = new KeyboardEvent(ev.type, {
+					key: ev.key,
+					code: ev.code,
+					location: ev.location,
+					ctrlKey: ev.ctrlKey,
+					shiftKey: ev.shiftKey,
+					altKey: ev.altKey,
+					metaKey: ev.metaKey,
+					repeat: ev.repeat,
+					bubbles: true,
+					cancelable: true,
+				});
+
+				// Dispatch it to the main window
+				const handled = !window.dispatchEvent(relayedEvent);
+
+				// If the main window handled it (e.g., a shortcut triggered),
+				// prevent the iframe from doing anything with it.
+				if (handled) {
+					ev.preventDefault();
+				}
+			});
+
+			contents.document.addEventListener('contextmenu', (ev) => {
+				ev.preventDefault();
+				// get position
+				const iframe = contents.document.defaultView?.frameElement
+				const rect = iframe?.getBoundingClientRect();
+
+				const range = rendition.getRange(this.currentSelectedCfi);
+				const selectedText = range.toString();
+
+
+				if (rect) {
+					// calculate position
+					const x = ev.clientX + rect.left;
+					const y = ev.clientY + rect.top;
+					// show menu
+					getContextMenu(selectedText,
+						// highlight
+						() => {
+							if (!this.file) return;
+							// const cfiRange = this.currentSelectedCfi;
+							this.plugin.addHighlight(this.file, this.currentSelectedCfi, 'red');
+							this.onAddAnnotation(this.currentSelectedCfi, 'red');
+							contents.window.getSelection()?.removeAllRanges();
+							// this.plugin.addHighlight(this.file, cfiRange);
+							//
+							// rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
+							// 	const menu = new Menu()
+							//
+							// 	menu.addItem(item => {
+							// 		item.setTitle("Delete").setIcon("delete").onClick(() => {
+							// 			this.plugin.deleteHighlight(this.file, cfiRange);
+							// 		})
+							// 	}).showAtMouseEvent(ev);
+							// });
+						},
+						// bookmark
+						async () => {
+							// book.locations.generate(1000);
+							const meta = await this.getMetadataFromCfi(this.currentCfi,book);
+							console.log(meta);
+
+							const chapterName = book.navigation.get(this.currentCfi).label
+							const pageNo = book.locations.locationFromCfi(this.currentCfi);
+							const progress = book.locations.percentageFromCfi(this.currentCfi);
+							const content = `${progress} ${chapterName}: ${pageNo}`;
+							// const content = `${this.currentCfi} ${progress} ${pageNo}`;
+							console.log(content);
+							this.plugin.addBookmark(this.file, this.currentCfi, content);
+						},
+						// take note
+						() => {
+						}).showAtPosition({x, y});
+				}
+			});
+
+
+		});
+	}
+
 
 	onPageChangeListener(rendition: Rendition) {
 		rendition.on("relocated", async (range: any) => {
@@ -116,9 +302,42 @@ export class EpubViewer extends FileView {
 		});
 	}
 
+	async getMetadataFromCfi(cfi:string, book:Book) {
+		await book.locations.generate(1500);
+		const map = book.locations.save();
+
+		console.log(map);
+
+		// 1. Get the Section (Spine Item) that contains this CFI
+		const section = book.spine.get(cfi);
+
+		// 2. Look up the Chapter Name in the Table of Contents (Navigation)
+		// We split '#' to match the base file name used in the TOC keys
+		const href = section ? section.href.split('#')[0] : null;
+		const navItem = href ? book.navigation.get(href) : null;
+
+		// Fallback to "Unknown Chapter" if not found in TOC
+		const chapter = navItem ? navItem.label.trim() : "Unknown Chapter";
+
+		// 3. Get Page Number (Only works if book.locations.generate(1000) was called)
+		const pageNo = book.locations.locationFromCfi(cfi);
+
+		// 4. Get Percentage (0 to 1)
+		const progress = book.locations.percentageFromCfi(cfi);
+
+		return {
+			chapter: chapter,
+			page: pageNo,
+			progress: progress ? (progress * 100).toFixed(2) + "%" : "0%",
+			cfi: cfi
+		};
+	}
+
+
 	onSelectionListener(rendition: Rendition) {
 		if (!this.file) return;
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
+			this.currentSelectedCfi = cfiRange;
 
 			const iframe = this.epubView.querySelector('iframe');
 			if (!iframe) return;
@@ -138,38 +357,40 @@ export class EpubViewer extends FileView {
 				// highlight
 				() => {
 					if (!this.file) return;
-					this.plugin.addHighlight(this.file, cfiRange);
-					rendition.annotations.add('highlight', cfiRange, {}, () => {
-						console.log("Highlight clicked!", cfiRange);
-						const menu = new Menu();
-						menu.addItem(item => {
-							item.setTitle("Delete")
-								.setIcon("trash")
-								.onClick(() => {
-									if (!this.file) return;
-									this.plugin.deleteHighlight(this.file, cfiRange);
-									this.rendition.annotations.remove(cfiRange, 'highlight');
-								})
-						});
-
-
-						//
-						const iframe = this.epubView.querySelector('iframe');
-						if (!iframe) return;
-
-						const iframeRect = iframe.getBoundingClientRect();
-
-						const range = this.rendition.getRange(cfiRange);
-						const selectedText = range.toString();
-						const rect = range.getBoundingClientRect();
-
-						const centerX = iframeRect.left + rect.left + (rect.width / 2);
-						const centerY = iframeRect.top + rect.top;
-
-						menu.showAtPosition({x: centerX, y: centerY}, document);
-					});
-					//
+					this.plugin.addHighlight(this.file, cfiRange, 'yellow');
+					this.onAddAnnotation(cfiRange, 'yellow');
 					contents.window.getSelection()?.removeAllRanges();
+
+					// rendition.annotations.add('highlight', cfiRange, {}, () => {
+					// 	console.log("Highlight clicked!", cfiRange);
+					// 	const menu = new Menu();
+					// 	menu.addItem(item => {
+					// 		item.setTitle("Delete")
+					// 			.setIcon("trash")
+					// 			.onClick(() => {
+					// 				if (!this.file) return;
+					// 				this.plugin.deleteHighlight(this.file, cfiRange);
+					// 				this.rendition.annotations.remove(cfiRange, 'highlight');
+					// 			})
+					// 	});
+					//
+					//
+					// 	//
+					// 	const iframe = this.epubView.querySelector('iframe');
+					// 	if (!iframe) return;
+					//
+					// 	const iframeRect = iframe.getBoundingClientRect();
+					//
+					// 	const range = this.rendition.getRange(cfiRange);
+					// 	const selectedText = range.toString();
+					// 	const rect = range.getBoundingClientRect();
+					//
+					// 	const centerX = iframeRect.left + rect.left + (rect.width / 2);
+					// 	const centerY = iframeRect.top + rect.top;
+					//
+					// 	menu.showAtPosition({x: centerX, y: centerY}, document);
+					// });
+					//
 
 				},
 				// bookmark
@@ -177,11 +398,7 @@ export class EpubViewer extends FileView {
 				},
 				// take note
 				() => {
-				},
-				// delete
-				() => {
-				})
-				.showAtPosition({x: centerX, y: centerY}, document);
+				}).showAtPosition({x: centerX, y: centerY}, document);
 
 
 			// clear selection
@@ -192,36 +409,50 @@ export class EpubViewer extends FileView {
 
 	async populateHighlight(file: TFile) {
 		const allHighlights: string[] = await this.plugin.getAllHighlights(file);
+		console.log(allHighlights);
 
 		for (const highlight of allHighlights) {
-			this.rendition.annotations.add('highlight', highlight, {}, (e: any) => {
-				console.log("Highlight clicked!", highlight);
-				const menu = new Menu();
-				menu.addItem(item => {
-					item.setTitle("Delete")
-						.setIcon("trash")
-						.onClick(() => {
-							this.plugin.deleteHighlight(file, highlight);
-							this.rendition.annotations.remove(highlight, 'highlight');
-						})
-				});
+			const data = highlight.split('|');
+			const cfi = data[0];
+			const color = data.length == 2 ? data[1] : 'yellow';
 
+			this.onAddAnnotation(cfi, color);
 
-				//
-				const iframe = this.epubView.querySelector('iframe');
-				if (!iframe) return;
-
-				const iframeRect = iframe.getBoundingClientRect();
-
-				const range = this.rendition.getRange(highlight);
-				const selectedText = range.toString();
-				const rect = range.getBoundingClientRect();
-
-				const centerX = iframeRect.left + rect.left + (rect.width / 2);
-				const centerY = iframeRect.top + rect.top;
-
-				menu.showAtPosition({x: centerX, y: centerY}, document);
-			});
+			// this.rendition.annotations.add('highlight', cfi, {}, (e: any) => {
+			// 	const data = highlight.split('|');
+			// 	const cfi = data[0];
+			// 	const color = data.length == 2 ? data[1] : 'yellow';
+			//
+			// 	console.log(`cfi: ${cfi}, color: ${color}, highlight: ${highlight}`);
+			// 	this.onAddAnnotation(cfi, color);
+			//
+			// 	// console.log("Highlight clicked!", highlight);
+			// 	// const menu = new Menu();
+			// 	// menu.addItem(item => {
+			// 	// 	item.setTitle("Delete")
+			// 	// 		.setIcon("trash")
+			// 	// 		.onClick(() => {
+			// 	// 			this.plugin.deleteHighlight(file, highlight);
+			// 	// 			this.rendition.annotations.remove(highlight, 'highlight');
+			// 	// 		})
+			// 	// });
+			// 	//
+			// 	//
+			// 	// //
+			// 	// const iframe = this.epubView.querySelector('iframe');
+			// 	// if (!iframe) return;
+			// 	//
+			// 	// const iframeRect = iframe.getBoundingClientRect();
+			// 	//
+			// 	// const range = this.rendition.getRange(highlight);
+			// 	// const selectedText = range.toString();
+			// 	// const rect = range.getBoundingClientRect();
+			// 	//
+			// 	// const centerX = iframeRect.left + rect.left + (rect.width / 2);
+			// 	// const centerY = iframeRect.top + rect.top;
+			// 	//
+			// 	// menu.showAtPosition({x: centerX, y: centerY}, document);
+			// },'highlight',{'fill': color});
 		}
 	}
 
