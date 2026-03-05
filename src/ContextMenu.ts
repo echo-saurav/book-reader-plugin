@@ -1,7 +1,7 @@
 import {Menu} from "obsidian";
 
 export const getContextMenu = (
-	selectedText: string,
+	selectedText: string | null,
 	onHighlight: () => void,
 	onBookmark: () => void,
 	onTakeNote: () => void
@@ -9,17 +9,17 @@ export const getContextMenu = (
 
 	const menu = new Menu();
 
-	console.log("selectedText",selectedText);
+	console.log("selectedText", selectedText);
 	if (selectedText) {
 		menu.addItem(item => {
-			item.setTitle(selectedText.slice(0,40).trim())
+			item.setTitle(selectedText.slice(0, 40).trim())
 				.setDisabled(true)
 				.setIcon("cursor")
 		});
 		menu.addItem(item => {
 			item.setTitle('Highlight')
 				.setIcon("pen")
-				.onClick(()=>{
+				.onClick(() => {
 					onHighlight();
 				})
 		});
@@ -46,8 +46,6 @@ export const getContextMenu = (
 			});
 
 	});
-
-
 
 
 	return menu;

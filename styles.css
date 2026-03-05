@@ -1,6 +1,7 @@
-.view-content:has(.epub-container){
+.view-content:has(.epub-container) {
 	padding: 0;
 }
+
 .epub-container {
 	height: 100%;
 	width: 100%;
@@ -10,14 +11,14 @@
 }
 
 .epub-view {
-	/*margin-bottom: 100px;*/
-	margin:0;
+	margin: 0;
 	padding: 0;
 	height: 100%;
 	width: 100%;
 }
 
-.epub-button{
+
+.epub-button {
 	width: 40px;
 	height: 40px;
 	border-radius: 50%;
@@ -29,6 +30,18 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.main-menu{
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	margin-bottom: 120px;
+	margin-right: 30px;
+}
+
+.hide-button {
+	opacity: 0;
 }
 
 .next {
@@ -46,14 +59,15 @@
 	margin: 30px;
 }
 
-.nav-back{
+.nav-back {
 	position: fixed;
 	bottom: 0;
 	left: 0;
 	margin-bottom: 200px;
 	margin-left: 30px;
 }
-.chapter-menu{
+
+.chapter-menu {
 	position: fixed;
 	bottom: 0;
 	left: 0;

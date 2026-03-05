@@ -4,29 +4,32 @@ import BookReader from "./main";
 import {ChaptersList, Chapter} from "./ChaptersList";
 import {getContextMenu} from "./ContextMenu";
 
-export const HOVER_ID = "EpubViewer";
 export const VIEW_TYPE_EPUB = "epub"
 
 export class EpubViewer extends FileView {
+	navigation = false
+	allowNoFile: false;
+	//
 	private plugin: BookReader;
 	private rendition: Rendition;
-	private readonly debounceUpdatePage: Debouncer<[file: TFile, cfi: any], Promise<void>>;
-	//
-	allowNoFile: false;
+	private debounceUpdatePage: Debouncer<[file: TFile, cfi: any], Promise<void>>;
+	private buttonTimeoutReset = 3000
+	private debounceHideButton: Debouncer<[], Promise<void>>;
+
 	chapters: Chapter[] = [];
-	//view
+	//views
 	private epubContainer: HTMLElement;
 	private epubView: HTMLElement;
 	private nextButton: HTMLElement;
 	private prevButton: HTMLElement;
 	private chapterMenuButton: HTMLElement;
 	private backNavigationButton: HTMLElement;
+	private mainMenuButton: HTMLElement;
 	//
 	private currentCfi: string;
 	private currentSelectedCfi: string
+	//
 	private isRestoring = false;
-
-	navigation = false
 	private linkHistory: string[] = []
 
 
@@ -35,17 +38,17 @@ export class EpubViewer extends FileView {
 		this.plugin = plugin;
 		const timeout = this.plugin.settings.updateDelay + 5 * 1000; // convert to minute
 		this.debounceUpdatePage = debounce(async (file: TFile, cfi: any) => {
-			await this.plugin.updatePage(file, cfi);
+			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
 	}
 
-	setEphemeralState(state: any) {
-		super.setEphemeralState(state);
-		console.log('state', state);
-		if (state.subpath && state.subpath.slice(1)) {
-			// this.subpath = state.subpath.slice(1);
-			this.rendition.display(state.subpath.slice(1));
+	autoHideButton() {
+		console.log('Auto hide button', this.mainMenuButton.classList);
+		// reveal if not visible
+		if (this.mainMenuButton.classList.contains('hide-button')) {
+			this.mainMenuButton.classList.remove('hide-button');
 		}
+		this.debounceHideButton();
 	}
 
 
@@ -54,18 +57,40 @@ export class EpubViewer extends FileView {
 		//
 		this.epubContainer = this.contentEl.createDiv({cls: 'epub-container'});
 		this.epubView = this.epubContainer.createDiv({cls: 'epub-view'});
+		// buttons
+		const buttonStyle = `
+			display: block; 
+		    width: 100%; 
+		    padding: 20px; 
+		    margin-bottom: 20px;
+		    cursor: pointer;
+		`
+		// prev chapter
+		this.prevButton = document.createElement('button');
+		this.prevButton.textContent = "Previous Chapter";
+		this.prevButton.style.cssText = buttonStyle;
+		// next chapter
+		this.nextButton = document.createElement('button');
+		this.nextButton.textContent = "Next Chapter";
+		this.nextButton.style.cssText = buttonStyle;
 		//
-		this.nextButton = this.epubContainer.createEl('button', {cls: 'epub-button next'});
-		this.prevButton = this.epubContainer.createEl('button', {cls: 'epub-button prev'});
 		this.chapterMenuButton = this.epubContainer.createEl('button', {cls: 'epub-button chapter-menu'});
 		this.backNavigationButton = this.epubContainer.createEl('button', {cls: 'epub-button nav-back'});
+		this.mainMenuButton = this.epubContainer.createEl('button', {cls: 'epub-button main-menu'});
 		//
-		this.nextButton.addEventListener('click', async (e) => {
-			await this.rendition.next();
-		});
-		this.prevButton.addEventListener('click', async (e) => {
-			await this.rendition.prev();
-		});
+		// auto hide button
+		// set auto hide after timeout
+		this.debounceHideButton = debounce(() => {
+			this.mainMenuButton.classList.add('hide-button');
+		}, this.buttonTimeoutReset, true);
+
+		this.autoHideButton();
+		// button actions
+		this.mainMenuButton.addEventListener('click', () => {
+			console.log('MainMenu clicked', this.mainMenuButton.classList);
+		})
+
+
 		//
 		this.chapterMenuButton.addEventListener('click', async (e) => {
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
@@ -73,30 +98,43 @@ export class EpubViewer extends FileView {
 				// await this.rendition.display(section.href);
 				this.rendition.display(cfi);
 			}).open();
-		})
+		});
 		//
 		this.backNavigationButton.addEventListener('click', async (e) => {
-			if (this.linkHistory) {
-				console.log("got history", this.linkHistory);
-				console.log("got history", this.linkHistory[this.linkHistory.length - 1]);
-				this.rendition.display(this.linkHistory[this.linkHistory.length - 1]);
+			// if (this.linkHistory) {
+			// 	console.log("got history", this.linkHistory);
+			// 	console.log("got history", this.linkHistory[this.linkHistory.length - 1]);
+			// 	this.rendition.display(this.linkHistory[this.linkHistory.length - 1]);
+			// }
+
+			if (!this.file) return;
+			const bookmarks: string[] = await this.plugin.getAllBookmarks(this.file);
+			const bookmarksAsChapter: Chapter[] = [];
+			for (const bookmark of bookmarks) {
+				const parts = bookmark.split('|');
+				const cfi = parts[0];
+				const label = parts[1];
+				const pageNo = parts[2];
+				const chapter: Chapter = {
+					id: bookmark,
+					label: `${label} ${pageNo}`,
+					href: cfi,
+					parent: undefined,
+					type: "parent"
+				}
+				//
+				bookmarksAsChapter.push(chapter);
 			}
 
-		})
+			//
+			new ChaptersList(this.app, bookmarksAsChapter, async (cfi: string) => {
+				this.rendition.display(cfi);
+			}).open();
+
+		});
 
 	}
 
-	async setState(state: any, result: ViewStateResult): Promise<void> {
-		// This is called when Obsidian restores a state (like clicking Back)
-		if (state.cfi && state.cfi !== this.currentCfi) {
-			this.currentCfi = state.cfi;
-			if (this.rendition) {
-				await this.rendition.display(state.cfi);
-			}
-		}
-
-		await super.setState(state, result);
-	}
 
 	async onLoadFile(file: TFile) {
 		super.load();
@@ -110,7 +148,6 @@ export class EpubViewer extends FileView {
 		const book = ePub(contents);
 		if (!book) return;
 
-		book.locations.generate(1000);
 
 		this.rendition = book.renderTo(this.epubView, {
 			width: "100%",
@@ -126,9 +163,11 @@ export class EpubViewer extends FileView {
 		// this.onSelectionListener(this.rendition);
 		this.onRender(this.rendition, book);
 		//
-		this.goLastPage();
+		this.goToLastReadingPage();
 		this.loadChapters(book);
 		this.populateHighlight(this.file);
+
+		this.loadBookMap(book);
 	}
 
 	getPosition(cfi: string): MenuPositionDef {
@@ -161,16 +200,107 @@ export class EpubViewer extends FileView {
 		}, 'highlight', {'fill': color});
 	}
 
+
 	onRender(rendition: Rendition, book: Book) {
-		// rendition.on("selected", (cfiRange: string, contents: Contents) => {
-		// 	// Just store the range, don't show the menu yet
-		// 	this.lastSelectedCfi = cfiRange;
-		// });
+		// keep track of pages
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
 			this.currentSelectedCfi = cfiRange;
 		});
 
-		rendition.on('rendered', (section: any, contents: Contents) => {
+		// after render
+		rendition.on('rendered',async (section: any, contents: Contents) => {
+			// insert buttons inside iframe
+			const doc = contents.document;
+			const body = doc.body;
+			body.insertBefore(this.prevButton, body.firstChild);
+			body.appendChild(this.nextButton);
+			//
+			this.nextButton.addEventListener('click', () => {
+				console.log('NextChapter clicked', this.nextButton.classList);
+
+				this.rendition.next();
+			});
+
+			this.prevButton.addEventListener('click', () => {
+				this.rendition.prev();
+				console.log('PrevChapter clicked', this.prevButton.classList);
+			});
+
+			//
+			await book.ready
+			let totalSections = 0; rendition.book.spine.each(() => totalSections++);
+
+			const prevSection = section.index > 0 ? book.spine.get(section.index - 1) : null;
+			const nextSection = section.index < totalSections -1 ? book.spine.get(section.index + 1) : null;
+
+
+			if(nextSection) {
+				this.nextButton.textContent = book.navigation.get(nextSection.href).label
+			}else {
+				this.nextButton.style.visibility = 'hidden';
+			}
+
+			if(prevSection) {
+				this.prevButton.textContent = book.navigation.get(prevSection.href).label
+			}else {
+				this.prevButton.style.visibility = 'hidden';
+			}
+
+
+
+
+			contents.document.addEventListener('contextmenu', (ev) => {
+				ev.preventDefault();
+				// get position
+				const iframe = contents.document.defaultView?.frameElement
+				const rect = iframe?.getBoundingClientRect();
+
+				const range = rendition.getRange(this.currentSelectedCfi);
+
+				const selectedText = range ? range.toString() : null;
+
+
+				if (rect) {
+					// calculate position
+					const x = ev.clientX + rect.left;
+					const y = ev.clientY + rect.top;
+					// show menu
+					getContextMenu(selectedText,
+						// highlight
+						() => {
+							if (!this.file) return;
+							// const cfiRange = this.currentSelectedCfi;
+							this.plugin.addHighlight(this.file, this.currentSelectedCfi, 'red', selectedText);
+							this.onAddAnnotation(this.currentSelectedCfi, 'red');
+							contents.window.getSelection()?.removeAllRanges();
+							// this.plugin.addHighlight(this.file, cfiRange);
+							//
+							// rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
+							// 	const menu = new Menu()
+							//
+							// 	menu.addItem(item => {
+							// 		item.setTitle("Delete").setIcon("delete").onClick(() => {
+							// 			this.plugin.deleteHighlight(this.file, cfiRange);
+							// 		})
+							// 	}).showAtMouseEvent(ev);
+							// });
+						},
+						// bookmark
+						async () => {
+
+							const chapterName = this.getChapterNameViaCfi(this.currentCfi, book);
+							const pageNo = book.locations.locationFromCfi(this.currentCfi);
+							//const progress = book.locations.percentageFromCfi(this.currentCfi) * 100;
+							const content = `${chapterName}|${pageNo}`;
+
+							console.log(content);
+							this.plugin.addBookmark(this.file, this.currentCfi, content);
+						},
+						// take note
+						() => {
+						}).showAtPosition({x, y});
+				}
+			});
 
 			// link jump history
 			contents.document.querySelectorAll('a').forEach(link => {
@@ -186,8 +316,12 @@ export class EpubViewer extends FileView {
 				});
 			});
 
-			// Fix for the menu not closing:
+			// Close menu
 			contents.document.addEventListener('click', (ev) => {
+
+				this.autoHideButton();
+				// reset selection
+				this.currentSelectedCfi = ""
 				// Create a fake click event to send to the main window
 				const newEvent = new MouseEvent('mousedown', {
 					view: window,
@@ -196,6 +330,7 @@ export class EpubViewer extends FileView {
 					clientX: ev.clientX,
 					clientY: ev.clientY
 				});
+
 
 				// Dispatch it on the main document so the Menu "hears" it
 				window.document.dispatchEvent(newEvent);
@@ -228,87 +363,41 @@ export class EpubViewer extends FileView {
 				}
 			});
 
-			contents.document.addEventListener('contextmenu', (ev) => {
-				ev.preventDefault();
-				// get position
-				const iframe = contents.document.defaultView?.frameElement
-				const rect = iframe?.getBoundingClientRect();
-
-				const range = rendition.getRange(this.currentSelectedCfi);
-				const selectedText = range.toString();
-
-
-				if (rect) {
-					// calculate position
-					const x = ev.clientX + rect.left;
-					const y = ev.clientY + rect.top;
-					// show menu
-					getContextMenu(selectedText,
-						// highlight
-						() => {
-							if (!this.file) return;
-							// const cfiRange = this.currentSelectedCfi;
-							this.plugin.addHighlight(this.file, this.currentSelectedCfi, 'red');
-							this.onAddAnnotation(this.currentSelectedCfi, 'red');
-							contents.window.getSelection()?.removeAllRanges();
-							// this.plugin.addHighlight(this.file, cfiRange);
-							//
-							// rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
-							// 	const menu = new Menu()
-							//
-							// 	menu.addItem(item => {
-							// 		item.setTitle("Delete").setIcon("delete").onClick(() => {
-							// 			this.plugin.deleteHighlight(this.file, cfiRange);
-							// 		})
-							// 	}).showAtMouseEvent(ev);
-							// });
-						},
-						// bookmark
-						async () => {
-							// book.locations.generate(1000);
-							const meta = await this.getMetadataFromCfi(this.currentCfi,book);
-							console.log(meta);
-
-							const chapterName = book.navigation.get(this.currentCfi).label
-							const pageNo = book.locations.locationFromCfi(this.currentCfi);
-							const progress = book.locations.percentageFromCfi(this.currentCfi);
-							const content = `${progress} ${chapterName}: ${pageNo}`;
-							// const content = `${this.currentCfi} ${progress} ${pageNo}`;
-							console.log(content);
-							this.plugin.addBookmark(this.file, this.currentCfi, content);
-						},
-						// take note
-						() => {
-						}).showAtPosition({x, y});
-				}
-			});
-
 
 		});
 	}
 
+	getChapterNameViaCfi(cfi: string, book: Book) {
+		const section = book.spine.get(cfi);
+		const notFound = "No chapter name found"
+		if (!section) return notFound
+		//
+		const href = section.href.split('#')[0];
+		const navItem = book.navigation.get(href);
 
-	onPageChangeListener(rendition: Rendition) {
-		rendition.on("relocated", async (range: any) => {
-			if (this.file == null) return
-			if (this.isRestoring) return;
-
-
-			console.log(`Relocated file: ${range.start.cfi}`);
-			const cfi = range.start.cfi;
-			this.currentCfi = cfi;
-			// await this.plugin.updatePage(this.file, cfi);
-			this.debounceUpdatePage(this.file, cfi)
-		});
+		return navItem ? navItem.label.trim() : notFound;
 	}
 
-	async getMetadataFromCfi(cfi:string, book:Book) {
+	async loadBookMap(book: Book) {
+		if (!this.file) return
+
+		const chars = 1500
+		const epubLocationMap = await this.plugin.getEpubLocationMap(this.file)
+
+		if (epubLocationMap) {
+			book.locations.load(epubLocationMap);
+		} else {
+			await book.locations.generate(chars);
+			const generateEpubMap = book.locations.save();
+			this.plugin.setEpubLocationMap(this.file, generateEpubMap);
+		}
+
+	}
+
+	async getMetadataFromCfi(cfi: string, book: Book) {
 		await book.locations.generate(1500);
-		const map = book.locations.save();
+		const epubMap = book.locations.save();
 
-		console.log(map);
-
-		// 1. Get the Section (Spine Item) that contains this CFI
 		const section = book.spine.get(cfi);
 
 		// 2. Look up the Chapter Name in the Table of Contents (Navigation)
@@ -325,6 +414,7 @@ export class EpubViewer extends FileView {
 		// 4. Get Percentage (0 to 1)
 		const progress = book.locations.percentageFromCfi(cfi);
 
+
 		return {
 			chapter: chapter,
 			page: pageNo,
@@ -333,79 +423,6 @@ export class EpubViewer extends FileView {
 		};
 	}
 
-
-	onSelectionListener(rendition: Rendition) {
-		if (!this.file) return;
-		rendition.on("selected", (cfiRange: string, contents: Contents) => {
-			this.currentSelectedCfi = cfiRange;
-
-			const iframe = this.epubView.querySelector('iframe');
-			if (!iframe) return;
-
-			const iframeRect = iframe.getBoundingClientRect();
-
-			const range = rendition.getRange(cfiRange);
-			const selectedText = range.toString();
-			const rect = range.getBoundingClientRect();
-
-			const centerX = iframeRect.left + rect.left + (rect.width / 2);
-			const centerY = iframeRect.top + rect.top;
-
-
-			getContextMenu(
-				selectedText,
-				// highlight
-				() => {
-					if (!this.file) return;
-					this.plugin.addHighlight(this.file, cfiRange, 'yellow');
-					this.onAddAnnotation(cfiRange, 'yellow');
-					contents.window.getSelection()?.removeAllRanges();
-
-					// rendition.annotations.add('highlight', cfiRange, {}, () => {
-					// 	console.log("Highlight clicked!", cfiRange);
-					// 	const menu = new Menu();
-					// 	menu.addItem(item => {
-					// 		item.setTitle("Delete")
-					// 			.setIcon("trash")
-					// 			.onClick(() => {
-					// 				if (!this.file) return;
-					// 				this.plugin.deleteHighlight(this.file, cfiRange);
-					// 				this.rendition.annotations.remove(cfiRange, 'highlight');
-					// 			})
-					// 	});
-					//
-					//
-					// 	//
-					// 	const iframe = this.epubView.querySelector('iframe');
-					// 	if (!iframe) return;
-					//
-					// 	const iframeRect = iframe.getBoundingClientRect();
-					//
-					// 	const range = this.rendition.getRange(cfiRange);
-					// 	const selectedText = range.toString();
-					// 	const rect = range.getBoundingClientRect();
-					//
-					// 	const centerX = iframeRect.left + rect.left + (rect.width / 2);
-					// 	const centerY = iframeRect.top + rect.top;
-					//
-					// 	menu.showAtPosition({x: centerX, y: centerY}, document);
-					// });
-					//
-
-				},
-				// bookmark
-				() => {
-				},
-				// take note
-				() => {
-				}).showAtPosition({x: centerX, y: centerY}, document);
-
-
-			// clear selection
-			// contents.window.getSelection().removeAllRanges();
-		});
-
-	}
 
 	async populateHighlight(file: TFile) {
 		const allHighlights: string[] = await this.plugin.getAllHighlights(file);
@@ -418,43 +435,54 @@ export class EpubViewer extends FileView {
 
 			this.onAddAnnotation(cfi, color);
 
-			// this.rendition.annotations.add('highlight', cfi, {}, (e: any) => {
-			// 	const data = highlight.split('|');
-			// 	const cfi = data[0];
-			// 	const color = data.length == 2 ? data[1] : 'yellow';
-			//
-			// 	console.log(`cfi: ${cfi}, color: ${color}, highlight: ${highlight}`);
-			// 	this.onAddAnnotation(cfi, color);
-			//
-			// 	// console.log("Highlight clicked!", highlight);
-			// 	// const menu = new Menu();
-			// 	// menu.addItem(item => {
-			// 	// 	item.setTitle("Delete")
-			// 	// 		.setIcon("trash")
-			// 	// 		.onClick(() => {
-			// 	// 			this.plugin.deleteHighlight(file, highlight);
-			// 	// 			this.rendition.annotations.remove(highlight, 'highlight');
-			// 	// 		})
-			// 	// });
-			// 	//
-			// 	//
-			// 	// //
-			// 	// const iframe = this.epubView.querySelector('iframe');
-			// 	// if (!iframe) return;
-			// 	//
-			// 	// const iframeRect = iframe.getBoundingClientRect();
-			// 	//
-			// 	// const range = this.rendition.getRange(highlight);
-			// 	// const selectedText = range.toString();
-			// 	// const rect = range.getBoundingClientRect();
-			// 	//
-			// 	// const centerX = iframeRect.left + rect.left + (rect.width / 2);
-			// 	// const centerY = iframeRect.top + rect.top;
-			// 	//
-			// 	// menu.showAtPosition({x: centerX, y: centerY}, document);
-			// },'highlight',{'fill': color});
 		}
 	}
+
+
+	async goToLastReadingPage() {
+		if (!this.file) return;
+		const markdownFile = await this.plugin.getMarkdownFile(this.file);
+		const metadata = this.plugin.getFrontmatter(markdownFile);
+
+		if (!metadata) {
+			console.log('no metadata found');
+			await this.rendition.display();
+		} else if (metadata && metadata[this.plugin.settings.currentPageRefKey]) {
+			await this.rendition.display(metadata[this.plugin.settings.currentPageRefKey]);
+			console.log('last', metadata[this.plugin.settings.currentPageRefKey]);
+		}
+	}
+
+
+	async loadChapters(book: Book) {
+		const tmpChapters: Chapter[] = [];
+		await book.ready
+
+		for (const toc of book.navigation.toc) {
+			tmpChapters.push({
+				href: toc.href,
+				label: toc.label,
+				id: toc.id,
+				parent: toc.parent,
+				type: "parent"
+			});
+			// add sub toc
+			if (toc.subitems) {
+				for (const subToc of toc.subitems) {
+					tmpChapters.push({
+						href: subToc.href,
+						label: subToc.label,
+						id: subToc.id,
+						parent: toc.label,
+						type: "sub"
+					});
+				}
+			}
+		}
+
+		this.chapters = tmpChapters;
+	}
+
 
 	handleResources(rendition: Rendition, book: Book) {
 		rendition.hooks.content.register(async (contents: Contents) => {
@@ -492,351 +520,64 @@ export class EpubViewer extends FileView {
 			},
 			"p": {
 				"font-size": "20px"
+			},
+			".page-top-bar": {
+				"height": "50px",
 			}
 		});
 	}
 
-	async goLastPage() {
-		// go to page from link
-		// if (this.subpath) {
-		// 	await this.rendition.display(this.subpath);
-		// 	console.log('go to page from link',this.subpath);
-		// 	return;
-		// }
-
-		if (!this.file) return;
-		const metadata = this.plugin.getFrontmatter(this.file);
-		if (!metadata) {
-			await this.rendition.display();
-		}
-		if (metadata?.cfi) {
-			await this.rendition.display(metadata.cfi);
-		}
-	}
-
-
-	async loadChapters(book: Book) {
-		const tmpChapters: Chapter[] = [];
-		await book.ready
-
-		for (const toc of book.navigation.toc) {
-			tmpChapters.push({
-				href: toc.href,
-				label: toc.label,
-				id: toc.id,
-				parent: toc.parent,
-				type: "parent"
-			});
-			// add sub toc
-			if (toc.subitems) {
-				for (const subToc of toc.subitems) {
-					tmpChapters.push({
-						href: subToc.href,
-						label: subToc.label,
-						id: subToc.id,
-						parent: toc.label,
-						type: "sub"
-					});
-				}
-			}
-		}
-
-		this.chapters = tmpChapters;
-	}
-
-
-	async xonLoadFile(file: TFile) {
-		super.load();
-		this.file = file;
-		if (!file) return;
-
-		console.log(`Loaded file: ${file.basename}`);
-		this.createView();
-
-		// Read file as binary
-		const contents = await this.app.vault.readBinary(file);
-		// Load the book with URL
-		const book = ePub(contents);
-
-		this.rendition = book.renderTo(this.epubView, {
-			width: "100%",
-			height: "100%",
-			allowScriptedContent: true,
-
-			flow: "scrolled",
-			manager: "default"
-		});
-
-
-		this.rendition.hooks.content.register(async (contents: Contents) => {
-			// const style = document.createElement('style');
-			// style.textContent = `
-			// 	body {
-			// 		background-color: red !important;
-			// 	}`;
-			// contents.document.head.appendChild(style);
-
-			const doc = contents.document;
-
-			// 1. Get all CSS files from the manifest
-
-			const manifest = book.packaging.manifest;
-			const cssFiles = Object.values(manifest).filter(item => item.type === 'text/css');
-
-			for (const file of cssFiles) {
-				// 2. Load the actual CSS text from the EPUB
-				const cssText = await book.load(file.href);
-				if (cssText) {
-					// 3. Inject it as a style tag (which bypasses protocol blocks)
-					const style = doc.createElement('style');
-					style.textContent = await new Response(cssText.toString()).text();
-					doc.head.appendChild(style);
-				}
-			}
-		});
-		this.rendition.themes.default({
-			"html": {
-				"display": "flex",
-				"justify-content": "center",
-				"background-color": "purple",
-				"padding-top": "100px"
-			},
-			"body": {
-				"background-color": "#ffffff",
-				"max-width": "700px",
-				"margin": "auto"
-			},
-			"span": {
-				"font-size": "20px"
-			},
-			"p": {
-				"font-size": "20px"
-			}
-		});
-
-		await this.rendition.display();
-
-		await this.goLastPage();
-		this.loadChapter();
-		// update page no on scroll
-		this.rendition.on("relocated", async (range: any) => {
+	onPageChangeListener(rendition: Rendition) {
+		rendition.on("relocated", async (range: any) => {
 			if (this.file == null) return
 			if (this.isRestoring) return;
 
-
-			console.log(`Relocated file: ${range.start.cfi}`);
 			const cfi = range.start.cfi;
 			this.currentCfi = cfi;
-			// await this.plugin.updatePage(this.file, cfi);
 			this.debounceUpdatePage(this.file, cfi)
 		});
-
-		this.rendition.on("selected", (cfiRange: string, contents: any) => {
-			// this.rendition.annotations.add("highlight", cfiRange, {}, (e: any) => {
-			// 	console.log("Highlight clicked!", cfiRange);
-			// },'highlight',{'background': 'red !important','opacity':1});
-
-			// Mark (invisible area, useful for invisible click targets)
-			// this.rendition.annotations.mark(cfiRange, {}, (e) => {
-			// 	console.log("You clicked a marked word");
-			// 	this.addHighlight(cfiRange);
-			// });
-			this.addHighlight(cfiRange)
-			// contents.window.getSelection().removeAllRanges();
-		});
-
-
-		// this.app.workspace.on('resize', async () => {
-		// 	await this.onLoadFile(this.file);
-		//
-		// });
-		// this.app.workspace.on('active-leaf-change', async () => {
-		// 	await this.onLoadFile(this.file);
-		// });
-		return super.onLoadFile(file);
 	}
 
-	addHighlight(cfiRange: string) {
-		// The 4th argument in .add() is the click callback
-		// this.rendition.annotations.add("highlight", cfiRange, {}, (e: MouseEvent) => {
-		// 	console.log("mouse", `${e.x} and ${e.y}`);
-		// 	this.showAnnotationMenu(e, cfiRange);
-		// });
-		// this.showAnnotationMenu(e, cfiRange);
-
-		const menu = new Menu();
-		menu.addItem((item) =>
-			item
-				.setTitle("Copy CFI Range")
-				.setIcon("copy")
-				.onClick(() => {
-					navigator.clipboard.writeText(cfiRange);
-				})
-		);
-
-		menu.addItem((item) =>
-			item
-				.setTitle("Delete Highlight")
-				.setIcon("trash")
-				.setWarning(true)
-				.onClick(() => {
-					this.rendition.annotations.remove(cfiRange, "highlight");
-					// Also remember to remove it from your persistent storage!
-					// this.myPluginSettings.removeHighlight(cfiRange);
-				})
-		);
-
-		const iframe = this.epubView.querySelector('iframe');
-		if (!iframe) return;
-
-		const iframeRect = iframe.getBoundingClientRect();
-
-		const range = this.rendition.getRange(cfiRange);
-		const rect = range.getBoundingClientRect();
-		// const iframeRect = iframe.getBoundingClientRect();
-
-		const centerX = iframeRect.left + rect.left + (rect.width / 2);
-		const centerY = iframeRect.top + rect.top;
-		console.log(`xx: ${centerY}, ${centerX}`);
-		menu.showAtPosition({x: centerX, y: centerY}, document);
-	}
-
-	showAnnotationMenu(e: MouseEvent, cfiRange: string) {
-		const menu = new Menu();
-
-		menu.addItem((item) =>
-			item
-				.setTitle("Copy CFI Range")
-				.setIcon("copy")
-				.onClick(() => {
-					navigator.clipboard.writeText(cfiRange);
-				})
-		);
-
-		menu.addItem((item) =>
-			item
-				.setTitle("Delete Highlight")
-				.setIcon("trash")
-				.setWarning(true)
-				.onClick(() => {
-					this.rendition.annotations.remove(cfiRange, "highlight");
-					// Also remember to remove it from your persistent storage!
-					// this.myPluginSettings.removeHighlight(cfiRange);
-				})
-		);
-
-		// Show the menu at the mouse coordinates
-		// menu.showAtMouseEvent(e);
-		const iframe = this.epubView.querySelector('iframe');
-		if (!iframe) return;
-
-		const iframeRect = iframe.getBoundingClientRect();
-
-		const range = this.rendition.getRange(cfiRange);
-		const rect = range.getBoundingClientRect();
-		// const iframeRect = iframe.getBoundingClientRect();
-
-		const centerX = iframeRect.left + rect.left + (rect.width / 2);
-		const centerY = iframeRect.top + rect.top;
-		console.log(`xx: ${centerY}, ${centerX}`);
-		menu.showAtPosition({x: centerX, y: centerY}, document);
-
-		this.app.workspace.trigger('mouseenter', {
-			event: e,
-			source: HOVER_ID,
-			hoverParent: this,
-			targetEl: iframe, // The iframe acts as the 'source' element
-			// linktext: this.file?.path,
-			linktext: "Existentialism. md",
-			coordinate: {x: centerX, y: centerY}
-		});
-
-	}
-
-
-	loadChapter() {
-		this.rendition.book.ready.then(async () => {
-			const book = this.rendition.book;
-			const tmpChapters: Chapter[] = [];
-
-			for (const toc of book.navigation.toc) {
-				tmpChapters.push({
-					href: toc.href,
-					label: toc.label,
-					id: toc.id,
-					parent: toc.parent,
-					type: "parent"
-				});
-				// add sub toc
-				if (toc.subitems) {
-					for (const subToc of toc.subitems) {
-						tmpChapters.push({
-							href: subToc.href,
-							label: subToc.label,
-							id: subToc.id,
-							parent: toc.label,
-							type: "sub"
-						});
-					}
-				}
-			}
-
-			this.chapters = tmpChapters;
-
-			const manifest = book.packaging.manifest;
-			const cssFiles = Object.values(manifest).filter(item => item.type === 'text/css');
-
-			console.log("Found CSS files:", cssFiles);
-			console.table(cssFiles);
-
-			// 2. Fetch and log the actual CSS content
-			for (const file of cssFiles) {
-				try {
-					// use book.load to get the resource (returns a Blob or string depending on version)
-					const cssContent = await book.load(file.href);
-
-					console.log(`--- Content of: ${file.href} ---`);
-
-					if (typeof cssContent === 'string') {
-						console.log(cssContent);
-					} else {
-						// If it returns a Blob/Buffer, convert it to text
-
-						const text = await new Response(cssContent.toString()).text();
-						console.log(text);
-					}
-				} catch (err) {
-					console.error(`Could not load CSS file: ${file.href}`, err);
-				}
-			}
-
-			console.log(this.chapters);
-		})
-	}
 
 	// Use Obsidian's resize hook to detect tab focus
 	onResize() {
 		super.onResize();
-		// When the tab becomes visible, Obsidian calls onResize.
-		// We wait a tiny bit for epub.js to settle, then force our saved position.
 		if (this.currentCfi) {
 			this.restorePosition();
 		}
 	}
 
-	private async restorePosition() {
+	async restorePosition() {
 		this.isRestoring = true;
 		await this.rendition.display(this.currentCfi);
-		// Wait for the move to finish before allowing new "relocated" events
 		setTimeout(() => {
 			this.isRestoring = false;
 		}, 200);
 	}
 
+
+	async setState(state: any, result: ViewStateResult): Promise<void> {
+		if (state.cfi && state.cfi !== this.currentCfi) {
+			this.currentCfi = state.cfi;
+			if (this.rendition) {
+				await this.rendition.display(state.cfi);
+			}
+		}
+
+		await super.setState(state, result);
+	}
+
+	setEphemeralState(state: any) {
+		super.setEphemeralState(state);
+
+		if (state.subpath && state.subpath.slice(1)) {
+			this.rendition.display(state.subpath.slice(1));
+		}
+	}
+
 	getViewType(): string {
 		return VIEW_TYPE_EPUB;
 	}
-
 
 }
 

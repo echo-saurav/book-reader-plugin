@@ -1,18 +1,52 @@
 import {Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
-import {EpubViewer, HOVER_ID, VIEW_TYPE_EPUB} from "./EpubViewer";
+import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
 
 
 interface BookReaderSettings {
 	bookNotesFolder: string;
 	nameTemplate: string;
 	updateDelay: number;
+	// metadata keys
+	titleKey: string
+	descriptionKey: string
+	authorKey: string
+	languageKey: string
+	publisherKey: string
+	//
+	bookLinkKey: string;
+	totalPagesKey: string;
+	currentPageRefKey: string;
+	progressKey: string
+	epubLocationsDataKey: string
+	//
+	highlightsKey: string;
+	bookmarksKey: string;
+	notesKey: string;
+
 }
 
 const DEFAULT_SETTINGS: BookReaderSettings = {
 	bookNotesFolder: '/',
 	nameTemplate: '{{filename}}-book-note.md',
 	updateDelay: 1,
+	//
+	titleKey: 'title',
+	descriptionKey: 'description',
+	authorKey: 'author',
+	languageKey: 'language',
+	publisherKey: 'publisher',
+	//
+	bookLinkKey: 'bookLink',
+	totalPagesKey: 'totalPages',
+	currentPageRefKey: 'currentPageRef',
+	progressKey: 'progress',
+	epubLocationsDataKey: 'epubLocations',
+	//
+	highlightsKey: 'highlights',
+	bookmarksKey: 'bookmarks',
+	notesKey: 'notes',
+
 }
 
 export default class BookReader extends Plugin {
@@ -26,105 +60,183 @@ export default class BookReader extends Plugin {
 		this.registerView(VIEW_TYPE_EPUB, (leaf: WorkspaceLeaf) => {
 			return new EpubViewer(leaf, this);
 		});
-		this.registerHoverLinkSource(HOVER_ID, {
-			display: 'Hooo',
-			defaultMod: true,
-		})
 	}
 
-	getBookFilePath(file: TFile) {
+	async initializeMarkdownFile(
+		bookFile: TFile,
+		title: string,
+		author: string,
+		description: string,
+		language: string,
+		publisher: string,
+		totalPages: number,
+		epubLocations: string[]) {
+		//
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+
+		// update
+		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
+			frontmatter[this.settings.bookLinkKey] = `[[${bookFile.path}]]`;
+			frontmatter[this.settings.titleKey] = title;
+			frontmatter[this.settings.authorKey] = author;
+			frontmatter[this.settings.descriptionKey] = description;
+			frontmatter[this.settings.languageKey] = language;
+			frontmatter[this.settings.publisherKey] = publisher;
+			frontmatter[this.settings.totalPagesKey] = totalPages;
+			frontmatter[this.settings.epubLocationsDataKey] = epubLocations;
+		});
+
+	}
+
+	async setEpubLocationMap(bookFile: TFile, epubLocations: string) {
+		if (!bookFile) return
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+
+		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
+			frontmatter[this.settings.epubLocationsDataKey] = epubLocations;
+		});
+	}
+
+	async getEpubLocationMap(bookFile: TFile) {
+		if (!bookFile) return
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+		const metadata = this.getFrontmatter(markdownFile);
+		if (!metadata) return null
+		return metadata[this.settings.epubLocationsDataKey];
+
+	}
+
+
+	// adding functions
+	async addHighlight(bookFile: TFile | null, cfiRange: string, color: string | null, content: string | null) {
+		const newHighlight = `${cfiRange}|${color}|${content}`;
+		this.pushDataToFrontmatter(bookFile, this.settings.highlightsKey, newHighlight);
+	}
+
+	async addBookmark(bookFile: TFile | null, cfi: string, content: string) {
+		const newBookmark = `${cfi}|${content}`
+		this.pushDataToFrontmatter(bookFile, this.settings.bookmarksKey, newBookmark);
+	}
+
+	async addNote(bookFile: TFile, cfi: string, color: string | null, note: string, content: string) {
+		const newBookNote = `${cfi}|${color}|${content}`;
+		this.pushDataToFrontmatter(bookFile, this.settings.notesKey, newBookNote);
+	}
+
+	// getting data
+	async getAllHighlights(bookFile: TFile) {
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		const fm = this.getFrontmatter(markdownFile);
+
+		if (fm && fm[this.settings.highlightsKey]) {
+			return fm[this.settings.highlightsKey];
+		}
+		return [];
+	}
+
+	async getAllBookmarks(bookFile: TFile) {
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		const fm = this.getFrontmatter(markdownFile);
+
+		if (fm && fm[this.settings.bookmarksKey]) {
+			return fm[this.settings.bookmarksKey];
+		}
+		return [];
+	}
+
+	async getAllNotes(bookFile: TFile) {
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		const fm = this.getFrontmatter(markdownFile);
+
+		if (fm && fm[this.settings.notesKey]) {
+			return fm[this.settings.notesKey];
+		}
+		return [];
+	}
+
+	// delete data
+	async deleteHighlight(bookFile: TFile | null, highlight: string) {
+		if (!bookFile) return
+		this.removeDataFromFrontmatter(bookFile, this.settings.highlightsKey, highlight);
+	}
+
+	async deleteBookmark(bookFile: TFile | null, bookmark: string) {
+		if (!bookFile) return
+		this.removeDataFromFrontmatter(bookFile, this.settings.bookmarksKey, bookmark);
+	}
+
+	async deleteNote(bookFile: TFile | null, note: string) {
+		if (!bookFile) return
+		this.removeDataFromFrontmatter(bookFile, this.settings.notesKey, note);
+	}
+
+
+	// other updates
+	async updatePageProgress(bookFile: TFile, cfi: string) {
+		console.log('updatePage', cfi)
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+
+		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
+			frontmatter[this.settings.currentPageRefKey] = cfi
+		});
+	}
+
+
+	// helper functions
+	getMarkdownFilePath(file: TFile) {
 		const bookNoteName = this.settings.nameTemplate.replace('{{filename}}', file.name);
 		return `${this.settings.bookNotesFolder}/${bookNoteName}`;
 	}
 
-	getFrontmatter(file: TFile) {
-		const bookLinkPath = this.getBookFilePath(file);
-		const linkFile = this.app.vault.getFileByPath(bookLinkPath);
-
-		if (!linkFile) return null
-
-		return this.app.metadataCache.getFileCache(linkFile)?.frontmatter
-	}
-
-
-	getBookPageRef(file: TFile) {
-		const fm = this.getFrontmatter(file)
-		return fm?.cfi ?? null
-	}
-
-
-	async updatePage(file: TFile, cfi: string) {
-		console.log('updatePage', cfi)
-		const bookLinkFilePath = this.getBookFilePath(file);
-		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
+	async getMarkdownFile(bookFile: TFile) {
+		const markdownFilePath = this.getMarkdownFilePath(bookFile);
+		const isExist = await this.app.vault.adapter.exists(markdownFilePath);
+		// create the file with metadata
 		if (!isExist) {
-			await this.app.vault.create(bookLinkFilePath, "");
+			await this.app.vault.create(markdownFilePath, "");
 		}
+		//
+		return this.app.vault.getFileByPath(markdownFilePath);
+	}
 
-		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
-		if (!bookLinkFile) return null
+	getFrontmatter(markdownFile: TFile | null) {
+		if (!markdownFile) return null;
+		return this.app.metadataCache.getFileCache(markdownFile)?.frontmatter
+	}
 
-		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
-			frontmatter.pastCfi = frontmatter.cfi
-			frontmatter.cfi = cfi
+	//
+	//
+	async pushDataToFrontmatter(bookFile: TFile | null, key: string, newData: any) {
+		if (!bookFile) return
+
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+
+		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
+
+			const keyValues: string[] = frontmatter[key] ? frontmatter[key] : [];
+			keyValues.push(newData);
+			frontmatter[key] = keyValues;
+
 		});
 	}
 
-	async addBookmark(file: TFile | null, cfi: string, content: string) {
-		if (!file) return
+	async removeDataFromFrontmatter(bookFile: TFile | null, key: string, deletingData: any) {
+		if (!bookFile) return
 
-	}
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
 
-	async addHighlight(file: TFile | null, cfi: string, color: string | null) {
-		if (!file) return
-
-		const bookLinkFilePath = this.getBookFilePath(file);
-		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
-		if (!isExist) {
-			await this.app.vault.create(bookLinkFilePath, "");
-		}
-
-		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
-		if (!bookLinkFile) return null
-
-		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
-			const highlights: string[] = frontmatter.highlights ? frontmatter.highlights : [];
-			const newHighlight = `${cfi}|${color}`
-			highlights.push(newHighlight);
-			frontmatter.highlights = highlights
+		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
+			const keyValues: string[] = frontmatter[key] ? frontmatter[key] : [];
+			keyValues.remove(deletingData);
+			frontmatter[key] = keyValues;
 		});
-
 	}
-
-	async getAllHighlights(file: TFile) {
-		const fm = this.getFrontmatter(file);
-		return fm?.highlights ?? []
-	}
-
-	async deleteHighlight(file: TFile | null, cfi: string) {
-		if (!file) return
-
-		const bookLinkFilePath = this.getBookFilePath(file);
-		const isExist = await this.app.vault.adapter.exists(bookLinkFilePath);
-		if (!isExist) {
-			await this.app.vault.create(bookLinkFilePath, "");
-		}
-
-		const bookLinkFile = this.app.vault.getFileByPath(bookLinkFilePath);
-		if (!bookLinkFile) return null
-
-		await this.app.fileManager.processFrontMatter(bookLinkFile, frontmatter => {
-			const highlights: string[] = frontmatter.highlights ? frontmatter.highlights : [];
-			highlights.remove(cfi);
-			frontmatter.highlights = highlights
-		});
-
-	}
-
-	async addNote(file: TFile, cfi: string, content: string) {
-
-	}
-
 
 	onunload() {
 	}
