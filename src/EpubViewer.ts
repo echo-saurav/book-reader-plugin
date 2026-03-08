@@ -131,7 +131,8 @@ export class EpubViewer extends FileView {
 					label: `${label} ${pageNo}`,
 					href: cfi,
 					parent: undefined,
-					type: "parent"
+					type: "parent",
+					color:null
 				}
 				//
 				bookmarksAsChapter.push(chapter);
@@ -475,7 +476,8 @@ export class EpubViewer extends FileView {
 				label: toc.label,
 				id: toc.id,
 				parent: toc.parent,
-				type: "parent"
+				type: "parent",
+				color:null
 			});
 			// add sub toc
 			if (toc.subitems) {
@@ -485,7 +487,8 @@ export class EpubViewer extends FileView {
 						label: subToc.label,
 						id: subToc.id,
 						parent: toc.label,
-						type: "sub"
+						type: "sub",
+						color:null
 					});
 				}
 			}
