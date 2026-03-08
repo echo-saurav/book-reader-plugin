@@ -7,6 +7,7 @@ export interface Chapter {
 	href: string;
 	parent: string | undefined;
 	type: "parent" | "sub";
+	color: string | null;
 }
 
 export class ChaptersList extends SuggestModal<Chapter> {
@@ -32,6 +33,10 @@ export class ChaptersList extends SuggestModal<Chapter> {
 	}
 
 	renderSuggestion(value: Chapter, el: HTMLElement): void {
+		if(value.color){
+			el.style.backgroundColor = `color-mix(in srgb, ${value.color}, transparent 70%)`;
+
+		}
 		// parent chapter
 		if (value.type === "parent") {
 			el.createEl('div', {text: value.label.trim()});

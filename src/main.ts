@@ -1,6 +1,7 @@
 import {Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
 import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
+import {EpubView} from "./EpubView";
 
 
 interface BookReaderSettings {
@@ -58,7 +59,8 @@ export default class BookReader extends Plugin {
 		this.addSettingTab(new BookReaderSettingsTab(this.app, this));
 		this.registerExtensions(["epub"], VIEW_TYPE_EPUB);
 		this.registerView(VIEW_TYPE_EPUB, (leaf: WorkspaceLeaf) => {
-			return new EpubViewer(leaf, this);
+			// return new EpubViewer(leaf, this);
+			return new EpubView(leaf, this);
 		});
 	}
 
@@ -111,8 +113,10 @@ export default class BookReader extends Plugin {
 
 
 	// adding functions
-	async addHighlight(bookFile: TFile | null, cfiRange: string, color: string | null, content: string | null) {
+	async addHighlight(bookFile: TFile | null, cfiRange: string | null, color: string | null, content: string | null) {
+		if (!cfiRange && !bookFile) return;
 		const newHighlight = `${cfiRange}|${color}|${content}`;
+		// const newHighlight = `${cfiRange}|${color}`;
 		this.pushDataToFrontmatter(bookFile, this.settings.highlightsKey, newHighlight);
 	}
 

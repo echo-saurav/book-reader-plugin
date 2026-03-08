@@ -1,7 +1,7 @@
 import {Menu} from "obsidian";
 
 export const getContextMenu = (
-	selectedText: string | null,
+	selectedText: string | null | undefined,
 	onHighlight: () => void,
 	onBookmark: () => void,
 	onTakeNote: () => void
@@ -9,7 +9,6 @@ export const getContextMenu = (
 
 	const menu = new Menu();
 
-	console.log("selectedText", selectedText);
 	if (selectedText) {
 		menu.addItem(item => {
 			item.setTitle(selectedText.slice(0, 40).trim())

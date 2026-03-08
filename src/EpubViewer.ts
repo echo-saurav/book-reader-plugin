@@ -1,4 +1,14 @@
-import {WorkspaceLeaf, FileView, TFile, debounce, Debouncer, Menu, ViewStateResult, MenuPositionDef} from "obsidian";
+import {
+	WorkspaceLeaf,
+	FileView,
+	TFile,
+	debounce,
+	Debouncer,
+	Menu,
+	ViewStateResult,
+	MenuPositionDef,
+	setIcon
+} from "obsidian";
 import ePub, {Book, Contents, Rendition} from 'epubjs';
 import BookReader from "./main";
 import {ChaptersList, Chapter} from "./ChaptersList";
@@ -77,6 +87,7 @@ export class EpubViewer extends FileView {
 		this.chapterMenuButton = this.epubContainer.createEl('button', {cls: 'epub-button chapter-menu'});
 		this.backNavigationButton = this.epubContainer.createEl('button', {cls: 'epub-button nav-back'});
 		this.mainMenuButton = this.epubContainer.createEl('button', {cls: 'epub-button main-menu'});
+		setIcon(this.mainMenuButton,'menu');
 		//
 		// auto hide button
 		// set auto hide after timeout
