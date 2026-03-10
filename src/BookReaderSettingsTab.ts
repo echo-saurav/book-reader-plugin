@@ -14,18 +14,18 @@ export default class BookReaderSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		new Setting(containerEl)
-			.setName('Book notes folder')
-			.addText(text => text
-				.setPlaceholder('folder')
-				.setValue(this.plugin.settings.bookNotesFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.bookNotesFolder = value;
-					await this.plugin.saveSettings();
-				}));
+		// new Setting(containerEl)
+		// 	.setName('Book notes folder')
+		// 	.addText(text => text
+		// 		.setPlaceholder('folder')
+		// 		.setValue(this.plugin.settings.bookNotesFolder)
+		// 		.onChange(async (value) => {
+		// 			this.plugin.settings.bookNotesFolder = value;
+		// 			await this.plugin.saveSettings();
+		// 		}));
 
 		new Setting(containerEl)
-			.setName('Notes name template')
+			.setName('Book Notes path template')
 			.setDesc("use {{filename}} as a placeholder for file name. Example: '{{filename}}-book-note.md'")
 			.addText(text => text
 				.setPlaceholder('{{filename}}.md')

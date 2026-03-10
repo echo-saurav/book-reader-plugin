@@ -46,7 +46,7 @@ export class EpubViewer extends FileView {
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
 		super(leaf);
 		this.plugin = plugin;
-		const timeout = this.plugin.settings.updateDelay + 5 * 1000; // convert to minute
+		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
 		this.debounceUpdatePage = debounce(async (file: TFile, cfi: any) => {
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);

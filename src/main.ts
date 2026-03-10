@@ -5,7 +5,7 @@ import {EpubView} from "./EpubView";
 
 
 interface BookReaderSettings {
-	bookNotesFolder: string;
+	// bookNotesFolder: string;
 	nameTemplate: string;
 	updateDelay: number;
 	// metadata keys
@@ -28,7 +28,7 @@ interface BookReaderSettings {
 }
 
 const DEFAULT_SETTINGS: BookReaderSettings = {
-	bookNotesFolder: '/',
+	// bookNotesFolder: '/',
 	nameTemplate: '{{filename}}-book-note.md',
 	updateDelay: 1,
 	//
@@ -182,18 +182,26 @@ export default class BookReader extends Plugin {
 	async updatePageProgress(bookFile: TFile, cfi: string) {
 		console.log('updatePage', cfi)
 		const markdownFile = await this.getMarkdownFile(bookFile);
+		console.log('before found markdown', markdownFile);
 		if (!markdownFile) return null
+		console.log('found markdown', markdownFile);
 
 		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
 			frontmatter[this.settings.currentPageRefKey] = cfi
+			console.log('updatePage', cfi)
+			console.log('frontmatter', frontmatter);
+			console.log("markdownFile",markdownFile);
 		});
 	}
 
 
 	// helper functions
 	getMarkdownFilePath(file: TFile) {
-		const bookNoteName = this.settings.nameTemplate.replace('{{filename}}', file.name);
-		return `${this.settings.bookNotesFolder}/${bookNoteName}`;
+		const bookNotePath = this.settings.nameTemplate.replace('{{filename}}', file.name);
+		// const bookFilePath =`${this.settings.bookNotesFolder}/${bookNoteName}`
+		// const bookFilePath =`${this.settings.bookNotesFolder}/${bookNoteName}`
+		console.log('book file path', bookNotePath);
+		return bookNotePath;
 	}
 
 	async getMarkdownFile(bookFile: TFile) {
@@ -212,6 +220,10 @@ export default class BookReader extends Plugin {
 		return this.app.metadataCache.getFileCache(markdownFile)?.frontmatter
 	}
 
+	// private getBookMarkdownFrontmatter(bookFile: TFile) {
+	// 	if (!markdownFile) return null;
+	// 	return this.app.metadataCache.getFileCache(markdownFile)?.frontmatter
+	// }
 	//
 	//
 	async pushDataToFrontmatter(bookFile: TFile | null, key: string, newData: any) {
