@@ -175,15 +175,23 @@ export class EpubView extends FileView {
 				// await this.rendition.display(section.href);
 				console.log('go to', cfi);
 				this.pushHistory(this.currentCfi);
-				try {
-					this.rendition.display(cfi);
-				} catch (err) {
-					console.error("nav", err);
-					const section = this.rendition.book.spine.get(cfi);
-					if (section) {
-						this.rendition.display(section.href);
-					}
-				}
+				this.rendition.display(cfi)
+				// const section = this.rendition.book.spine.get(cfi);
+				// if (section) {
+				// 	// const convertToCfi= section.cfiFromElement(section.contents)
+				// 	console.log('sec', section.canonical);
+				// 	this.rendition.display(section.canonical);
+				//
+				// }
+				// try {
+				// 	this.rendition.display(cfi);
+				// } catch (err) {
+				// 	console.error("nav", err);
+				// 	const section = this.rendition.book.spine.get(cfi);
+				// 	if (section) {
+				// 		this.rendition.display(section.href);
+				// 	}
+				// }
 
 
 			}).open();
@@ -778,8 +786,29 @@ export class EpubView extends FileView {
 		const tmpChapters: Chapter[] = [];
 
 		for (const toc of book.navigation.toc) {
+			//
+			// const item = book.spine.get(toc.href);
+			// let cfi = toc.href;
+			// if(item){
+			// 	cfi = item.canonical;
+			// }
+
+			const item = book.spine.get(toc.href);
+
+			let target: string;
+
+			if (item && item.cfiBase) {
+				// 2. Construct a valid CFI manually
+				// We add "!" to indicate the end of the spine reference
+				target = `epubcfi(${item.cfiBase}!/4/2/2)`;
+			} else {
+				// Fallback to canonical href if spine lookup fails
+				target = book.canonical(toc.href);
+			}
+
 			tmpChapters.push({
-				href: toc.href,
+				// href: toc.href,
+				href: target,
 				label: toc.label,
 				id: toc.id,
 				parent: toc.parent,
@@ -789,8 +818,24 @@ export class EpubView extends FileView {
 			// add sub toc
 			if (toc.subitems) {
 				for (const subToc of toc.subitems) {
+
+					const item = book.spine.get(toc.href);
+
+					let target: string;
+
+
+					if (item && item.cfiBase) {
+						// 2. Construct a valid CFI manually
+						// We add "!" to indicate the end of the spine reference
+						target = `epubcfi(${item.cfiBase}!/4/2/2))`;
+					} else {
+						// Fallback to canonical href if spine lookup fails
+						target = book.canonical(toc.href);
+					}
+
 					tmpChapters.push({
-						href: subToc.href,
+						// href: subToc.href,
+						href: target,
 						label: subToc.label,
 						id: subToc.id,
 						parent: toc.label,
