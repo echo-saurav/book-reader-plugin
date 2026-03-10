@@ -306,7 +306,7 @@ export class EpubView extends FileView {
 	hideNavOnScroll(contents:Contents) {
 	// .is-phone.is-hidden-nav .view-header
 	// .is-hidden-nav .mobile-navbar
-		const navbar = document.querySelector('.mobile-navbar');
+	// 	const navbar = document.querySelector('.mobile-navbar');
 
 		contents.document.body.addEventListener('wheel', (event) => {
 			// deltaY is positive when scrolling down, negative when scrolling up
@@ -320,6 +320,45 @@ export class EpubView extends FileView {
 				document.body.classList.remove('is-hidden-nav');
 				// navbar?.classList.remove('is-hidden-nav');
 			}
+		}, { passive: true });
+
+		///
+		// let lastScrollTop = 0;
+		//
+		// contents.document.body.addEventListener('scroll', () => {
+		// 	let currentScroll = contents.document.body.scrollTop;
+		//
+		// 	if (currentScroll > lastScrollTop) {
+		// 		console.log('Moving Down');
+		// 	} else {
+		// 		console.log('Moving Up');
+		// 	}
+		//
+		// 	lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // Mobile compatibility
+		// }, { passive: true });
+
+		//
+		let touchStartY = 0;
+		let touchEndY = 0;
+
+		contents.document.body.addEventListener('touchstart', e => {
+			// Record where the finger first hit the screen
+			touchStartY = e.changedTouches[0].screenY;
+		}, { passive: true });
+
+		contents.document.body.addEventListener('touchmove', e => {
+			touchEndY = e.changedTouches[0].screenY;
+
+			const threshold = 10; // Sensitivity
+
+			if (touchStartY > touchEndY + threshold) {
+				console.log('User is dragging UP (Scrolling Down)');
+			} else if (touchStartY < touchEndY - threshold) {
+				console.log('User is dragging DOWN (Scrolling Up)');
+			}
+
+			// Optional: Update start position to make it "continuous"
+			// touchStartY = touchEndY;
 		}, { passive: true });
 
 		// .is-hidden-nav .mobile-navbar{
@@ -536,18 +575,25 @@ export class EpubView extends FileView {
 
 	handleGesture(touchStartX: any, touchEndX: any) {
 		const threshold = 50;
+		const toggleLeft = "app:toggle-left-sidebar";
+		const toggleRight = "app:toggle-right-sidebar";
 
 		if (touchEndX < touchStartX - threshold) {
 			console.log('Swiped Left');
-			const toggleLeft = "app:toggle-left-sidebar";
-			(this.plugin.app as any).commands.executeCommandById(toggleLeft);
+
+			(this.plugin.app as any).commands.executeCommandById(toggleRight);
 		}
 
 		if (touchEndX > touchStartX + threshold) {
 			console.log('Swiped Right');
-			const toggleRight = "app:toggle-right-sidebar";
-			(this.plugin.app as any).commands.executeCommandById(toggleRight);
+
+			(this.plugin.app as any).commands.executeCommandById(toggleLeft);
 		}
+
+		//
+
+
+
 	}
 
 	onMouseClick(contents: Contents) {
