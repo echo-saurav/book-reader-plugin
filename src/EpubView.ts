@@ -217,7 +217,6 @@ export class EpubView extends FileView {
 		this.autoHideButton();
 
 
-
 	}
 
 	async showHighlights() {
@@ -289,13 +288,13 @@ export class EpubView extends FileView {
 		// reveal if not visible
 		if (this.menuContainer.classList.contains('hide-button')) {
 			this.menuContainer.classList.remove('hide-button');
-		}else {
+		} else {
 			this.menuContainer.classList.add('hide-button');
 		}
 
 		if (this.pageInfo.classList.contains('hide-button')) {
 			this.pageInfo.classList.remove('hide-button');
-		}else {
+		} else {
 			this.pageInfo.classList.add('hide-button');
 		}
 
@@ -303,73 +302,33 @@ export class EpubView extends FileView {
 	}
 
 
-	hideNavOnScroll(contents:Contents) {
-	// .is-phone.is-hidden-nav .view-header
-	// .is-hidden-nav .mobile-navbar
-	// 	const navbar = document.querySelector('.mobile-navbar');
+	hideNavOnScroll(contents: Contents) {
 
-		contents.document.body.addEventListener('wheel', (event) => {
-			// deltaY is positive when scrolling down, negative when scrolling up
-			if (event.deltaY > 0) {
-				console.log('Scrolling Down');
-				// navbar?.classList.add('is-hidden-nav');
-				document.body.classList.add('is-hidden-nav');
-
-			} else if (event.deltaY < 0) {
-				console.log('Scrolling Up');
-				document.body.classList.remove('is-hidden-nav');
-				// navbar?.classList.remove('is-hidden-nav');
-			}
-		}, { passive: true });
-
-		///
-		// let lastScrollTop = 0;
-		//
-		// contents.document.body.addEventListener('scroll', () => {
-		// 	let currentScroll = contents.document.body.scrollTop;
-		//
-		// 	if (currentScroll > lastScrollTop) {
-		// 		console.log('Moving Down');
-		// 	} else {
-		// 		console.log('Moving Up');
-		// 	}
-		//
-		// 	lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // Mobile compatibility
-		// }, { passive: true });
-
-		//
 		let touchStartY = 0;
 		let touchEndY = 0;
 
 		contents.document.body.addEventListener('touchstart', e => {
-			// Record where the finger first hit the screen
 			touchStartY = e.changedTouches[0].screenY;
-		}, { passive: true });
+		}, {passive: true});
 
 		contents.document.body.addEventListener('touchmove', e => {
 			touchEndY = e.changedTouches[0].screenY;
 
-			const threshold = 10; // Sensitivity
+			const threshold = 10;
 
+			// down
 			if (touchStartY > touchEndY + threshold) {
-				console.log('User is dragging UP (Scrolling Down)');
-				document.body.classList.remove('is-hidden-nav');
-			} else if (touchStartY < touchEndY - threshold) {
-				console.log('User is dragging DOWN (Scrolling Up)');
-				document.body.classList.add('is-hidden-nav');
+				if (!document.body.classList.contains('is-hidden-nav')) {
+					document.body.classList.add('is-hidden-nav');
+				}
 			}
+			// up
+			else if (touchStartY < touchEndY - threshold) {
+				document.body.classList.remove('is-hidden-nav');
+			}
+			touchStartY = touchEndY;
+		}, {passive: true});
 
-			// Optional: Update start position to make it "continuous"
-			// touchStartY = touchEndY;
-		}, { passive: true });
-
-		// .is-hidden-nav .mobile-navbar{
-		// --hidden-nav-navbar-transform: translateY(calc(var(--navbar-height) + var(--navbar-bottom-offset)))
-		// }
-		//
-		// .is-phone.is-hidden-nav .view-header{
-		// 	--hidden-nav-offset:
-		// 	calc(var(--view-header-height) + var(--view-header-top-offset))}
 	}
 
 
@@ -576,7 +535,7 @@ export class EpubView extends FileView {
 	}
 
 	handleGesture(touchStartX: any, touchEndX: any) {
-		const threshold = 50;
+		const threshold = 80;
 		const toggleLeft = "app:toggle-left-sidebar";
 		const toggleRight = "app:toggle-right-sidebar";
 
@@ -593,7 +552,6 @@ export class EpubView extends FileView {
 		}
 
 		//
-
 
 
 	}

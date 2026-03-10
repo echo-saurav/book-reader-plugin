@@ -1,7 +1,9 @@
 .view-content:has(.epub-container) {
 	padding: 0;
-
+	margin-top: 0 !important;
 }
+
+/*.is-mobile*/
 
 .epub-container {
 	height: 100%;
@@ -184,7 +186,7 @@
 
 }
 
-.loading{
+.loading {
 	display: flex;
 	align-items: center;
 	justify-content: center;
