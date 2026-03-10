@@ -851,12 +851,12 @@ export class EpubView extends FileView {
 
 
 	// Use Obsidian's resize hook to detect tab focus
-	onResize() {
-		super.onResize();
-		if (this.currentCfi) {
-			this.restorePosition();
-		}
-	}
+	// onResize() {
+	// 	super.onResize();
+	// 	if (this.currentCfi) {
+	// 		this.restorePosition();
+	// 	}
+	// }
 
 	async restorePosition() {
 		this.isRestoring = true;
