@@ -530,7 +530,11 @@ export class EpubView extends FileView {
 
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
-			this.handleGesture(touchStartX, touchEndX);
+			
+			if(!this.currentSelectedCfi){
+				this.handleGesture(touchStartX, touchEndX);
+			}
+
 		});
 	}
 
@@ -626,7 +630,7 @@ export class EpubView extends FileView {
 			const x = ev.clientX + (rect ? rect.left : 0);
 			const y = ev.clientY + (rect ? rect.top : 0);
 
-			console.log('selected', this.getCurrentSelectedText(contents));
+			// console.log('selected', this.getCurrentSelectedText(contents));
 			getContextMenu(this.getCurrentSelectedText(contents),
 				// highlight
 				() => {
