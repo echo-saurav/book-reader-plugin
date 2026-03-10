@@ -78,7 +78,6 @@ export class EpubView extends FileView {
 		this.loading.style.display = 'flex';
 
 
-
 		// ui buttons
 		this.menuContainer = this.epubContainer.createEl('div', {cls: 'menu-container'});
 		this.buttonContainer = this.menuContainer.createEl('div', {cls: 'button-container'});
@@ -202,7 +201,6 @@ export class EpubView extends FileView {
 		this.hideNavOnScroll();
 
 
-
 	}
 
 	async showHighlights() {
@@ -317,6 +315,7 @@ export class EpubView extends FileView {
 		this.applyDefaultTheme(this.rendition);
 		this.rendition.on('rendered', async (section: Section, contents: Contents) => {
 			if (!this.file) return
+
 
 			this.loading.style.display = 'none';
 
@@ -465,17 +464,24 @@ export class EpubView extends FileView {
 	onMouseClick(contents: Contents) {
 		let isDragging = false;
 
-		contents.document.addEventListener('mousedown', () => isDragging = false);
-		contents.document.addEventListener('mousemove', () => isDragging = true);
+		contents.document.addEventListener('mousedown', (e: MouseEvent) => {
+			isDragging = false;
+			this.redirectMouseGesture(contents, e, 'mousedown');
+		});
+		contents.document.addEventListener('mousemove', (e: MouseEvent) => {
+			isDragging = true;
+			this.redirectMouseGesture(contents, e, 'mousemove');
+		});
 
 		// mouse dragging and select fix
-		contents.document.addEventListener('mouseup', () => {
+		contents.document.addEventListener('mouseup', (e: MouseEvent) => {
 			if (!isDragging) {
 				// stationary click
 				this.autoHideButton();
 			} else {
 				// selection or drag
 			}
+			this.redirectMouseGesture(contents, e, 'mouseup');
 		});
 
 
@@ -558,6 +564,25 @@ export class EpubView extends FileView {
 		})
 	}
 
+	redirectMouseGesture(contents: Contents, e: MouseEvent, type: string) {
+		// 1. Get iframe position relative to Obsidian window
+		const rect = contents.document?.defaultView?.frameElement?.getBoundingClientRect();
+
+		// 2. Create a fake event with "offset" coordinates
+		// This makes the parent think the mouse is at the correct screen position
+		const forwardedEvent = new MouseEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			view: window,
+			clientX: e.clientX + (rect ? rect.left : 0),
+			clientY: e.clientY + (rect ? rect.top : 0),
+			buttons: e.buttons,
+			which: e.which
+		});
+
+		// 3. Dispatch it to the parent (the Obsidian container)
+		window.parent.document.dispatchEvent(forwardedEvent);
+	}
 
 	redirectHotkeys(contents: Contents) {
 		contents.document.addEventListener('keydown', (ev: KeyboardEvent) => {
@@ -703,7 +728,7 @@ export class EpubView extends FileView {
 
 	async loadChapters(book: Book) {
 		const tmpChapters: Chapter[] = [];
-		await book.ready
+		// await book.ready
 
 		for (const toc of book.navigation.toc) {
 			tmpChapters.push({
