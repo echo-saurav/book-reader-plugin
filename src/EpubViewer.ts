@@ -310,7 +310,9 @@ export class EpubViewer extends FileView {
 						},
 						// take note
 						() => {
-						}).showAtPosition({x, y});
+						},
+						()=>{},
+						).showAtPosition({x, y});
 				}
 			});
 
