@@ -639,6 +639,32 @@ export class EpubView extends FileView {
 		const textColor = rootStyles.getPropertyValue('--text-normal').trim();
 		const h1Size = rootStyles.getPropertyValue('--h1-size').trim();
 
+		// rendition.themes.default({
+		// 	"html": {
+		// 		"display": "flex",
+		// 		"justify-content": "center",
+		// 		"background-color": bgColor,
+		// 		"padding-top": "100px",
+		// 		"color": textColor,
+		// 		"--button-color": bgColor,
+		// 		"--button-text-color": textColor,
+		// 		"--h1-size": h1Size,
+		// 	},
+		// 	"body": {
+		// 		"max-width": "700px",
+		// 		"margin": "auto",
+		// 		"padding": "13px !important",
+		// 	},
+		// 	"span": {
+		// 		"font-size": "20px"
+		// 	},
+		// 	"p": {
+		// 		"font-size": "20px"
+		// 	},
+		// 	".page-top-bar": {
+		// 		"height": "50px",
+		// 	}
+		// });
 		rendition.themes.default({
 			"html": {
 				"display": "flex",
@@ -653,12 +679,7 @@ export class EpubView extends FileView {
 			"body": {
 				"max-width": "700px",
 				"margin": "auto",
-			},
-			"span": {
-				"font-size": "20px"
-			},
-			"p": {
-				"font-size": "20px"
+				"padding": "13px !important",
 			},
 			".page-top-bar": {
 				"height": "50px",
