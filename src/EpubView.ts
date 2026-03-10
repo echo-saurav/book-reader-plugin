@@ -38,18 +38,15 @@ export class EpubView extends FileView {
 	private prevButton: HTMLElement;
 	private loading: HTMLElement;
 	// buttons
+	private backNavigationButton: HTMLElement;
 	private addBookmarkButton: HTMLElement;
 	private chapterMenuButton: HTMLElement;
 	private bookmarksMenuButton: HTMLElement;
 	private highlightsMenuButton: HTMLElement;
 	private notesMenuButton: HTMLElement;
-
 	//
 	private pageInfo: HTMLElement;
 	private pageSize = 1024
-
-	private backNavigationButton: HTMLElement;
-	private mainMenuButton: HTMLElement;
 	//
 	private currentCfi: string;
 	private currentSelectedCfi: string | null;
@@ -166,10 +163,12 @@ export class EpubView extends FileView {
 			this.menuContainer.classList.add('hide-button');
 			this.pageInfo.classList.add('hide-button');
 
+
 		}, this.buttonTimeoutReset, true);
 
 		// click listeners
 		this.chapterMenuButton.addEventListener('click', async (e) => {
+
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
 				// const section = this.rendition.book.spine.get(cfi);
 				// await this.rendition.display(section.href);
@@ -216,7 +215,7 @@ export class EpubView extends FileView {
 
 
 		this.autoHideButton();
-		this.hideNavOnScroll();
+
 
 
 	}
@@ -290,17 +289,39 @@ export class EpubView extends FileView {
 		// reveal if not visible
 		if (this.menuContainer.classList.contains('hide-button')) {
 			this.menuContainer.classList.remove('hide-button');
+		}else {
+			this.menuContainer.classList.add('hide-button');
 		}
 
 		if (this.pageInfo.classList.contains('hide-button')) {
 			this.pageInfo.classList.remove('hide-button');
+		}else {
+			this.pageInfo.classList.add('hide-button');
 		}
 
 		this.debounceHideButton();
 	}
 
 
-	hideNavOnScroll() {
+	hideNavOnScroll(contents:Contents) {
+	// .is-phone.is-hidden-nav .view-header
+	// .is-hidden-nav .mobile-navbar
+		const navbar = document.querySelector('.mobile-navbar');
+
+		contents.document.body.addEventListener('wheel', (event) => {
+			// deltaY is positive when scrolling down, negative when scrolling up
+			if (event.deltaY > 0) {
+				console.log('Scrolling Down');
+				// navbar?.classList.add('is-hidden-nav');
+				document.body.classList.add('is-hidden-nav');
+
+			} else if (event.deltaY < 0) {
+				console.log('Scrolling Up');
+				document.body.classList.remove('is-hidden-nav');
+				// navbar?.classList.remove('is-hidden-nav');
+			}
+		}, { passive: true });
+
 		// .is-hidden-nav .mobile-navbar{
 		// --hidden-nav-navbar-transform: translateY(calc(var(--navbar-height) + var(--navbar-bottom-offset)))
 		// }
@@ -337,7 +358,9 @@ export class EpubView extends FileView {
 
 			this.loading.style.display = 'none';
 
+			this.hideNavOnScroll(contents);
 			this.onMouseClick(contents);
+			this.overrideTouchSwipe(contents);
 			this.loadChapters(book);
 			this.handleLinkClick(this.rendition, contents);
 			this.redirectHotkeys(contents);
@@ -494,6 +517,37 @@ export class EpubView extends FileView {
 		}
 		return '';
 
+	}
+
+
+	overrideTouchSwipe(contents: Contents) {
+		let touchStartX = 0;
+		let touchEndX = 0;
+
+		contents.document.body.addEventListener('touchstart', e => {
+			touchStartX = e.changedTouches[0].screenX;
+		});
+
+		contents.document.body.addEventListener('touchend', e => {
+			touchEndX = e.changedTouches[0].screenX;
+			this.handleGesture(touchStartX, touchEndX);
+		});
+	}
+
+	handleGesture(touchStartX: any, touchEndX: any) {
+		const threshold = 50;
+
+		if (touchEndX < touchStartX - threshold) {
+			console.log('Swiped Left');
+			const toggleLeft = "app:toggle-left-sidebar";
+			(this.plugin.app as any).commands.executeCommandById(toggleLeft);
+		}
+
+		if (touchEndX > touchStartX + threshold) {
+			console.log('Swiped Right');
+			const toggleRight = "app:toggle-right-sidebar";
+			(this.plugin.app as any).commands.executeCommandById(toggleRight);
+		}
 	}
 
 	onMouseClick(contents: Contents) {
@@ -655,6 +709,7 @@ export class EpubView extends FileView {
 		const bgColor = rootStyles.getPropertyValue('--background-primary').trim();
 		const textColor = rootStyles.getPropertyValue('--text-normal').trim();
 		const h1Size = rootStyles.getPropertyValue('--h1-size').trim();
+		const linkColor = rootStyles.getPropertyValue('--link-color').trim();
 
 		// rendition.themes.default({
 		// 	"html": {
@@ -700,6 +755,12 @@ export class EpubView extends FileView {
 			},
 			".page-top-bar": {
 				"height": "50px",
+			},
+			"span": {
+				"font-size": "20px !important"
+			},
+			"a": {
+				"color": linkColor,
 			}
 		});
 	}

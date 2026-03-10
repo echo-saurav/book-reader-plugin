@@ -220,12 +220,6 @@ export default class BookReader extends Plugin {
 		return this.app.metadataCache.getFileCache(markdownFile)?.frontmatter
 	}
 
-	// private getBookMarkdownFrontmatter(bookFile: TFile) {
-	// 	if (!markdownFile) return null;
-	// 	return this.app.metadataCache.getFileCache(markdownFile)?.frontmatter
-	// }
-	//
-	//
 	async pushDataToFrontmatter(bookFile: TFile | null, key: string, newData: any) {
 		if (!bookFile) return
 
@@ -252,6 +246,19 @@ export default class BookReader extends Plugin {
 			keyValues.remove(deletingData);
 			frontmatter[key] = keyValues;
 		});
+	}
+
+	public async runTemplaterReplace() {
+		const templaterReplaceCommandId = "templater-obsidian:replace-in-file-templater";
+		const saveCommandId = "editor:save-file";
+		const toggleLeft = "app:toggle-left-sidebar";
+
+
+		(this.app as any).commands.executeCommandById(toggleLeft);
+
+
+
+
 	}
 
 	onunload() {
