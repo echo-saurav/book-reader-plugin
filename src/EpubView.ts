@@ -530,8 +530,8 @@ export class EpubView extends FileView {
 
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
-
-			if (!this.currentSelectedCfi) {
+			contents.document.getSelection();
+			if (!contents.document.getSelection()) {
 				this.handleGesture(touchStartX, touchEndX);
 			}else {
 				this.menu(contents, this.rendition.book, {x: 0, y: 0});
