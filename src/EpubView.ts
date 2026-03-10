@@ -3,7 +3,7 @@ import {
 	Debouncer,
 	FileView,
 	Menu,
-	MenuPositionDef,
+	Platform,
 	setIcon,
 	TFile,
 	ViewStateResult,
@@ -531,7 +531,7 @@ export class EpubView extends FileView {
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
 
-			if(!this.currentSelectedCfi){
+			if (!this.currentSelectedCfi) {
 				this.handleGesture(touchStartX, touchEndX);
 			}else {
 				this.menu(contents, this.rendition.book, {x: 0, y: 0});
@@ -625,44 +625,49 @@ export class EpubView extends FileView {
 		contents.document.addEventListener('contextmenu', (ev) => {
 			ev.preventDefault();
 
-			const iframe = contents.document.defaultView?.frameElement
-			const rect = iframe?.getBoundingClientRect();
+			if (Platform.isDesktop) {
+				const iframe = contents.document.defaultView?.frameElement
+				const rect = iframe?.getBoundingClientRect();
 
 
-			const x = ev.clientX + (rect ? rect.left : 0);
-			const y = ev.clientY + (rect ? rect.top : 0);
+				const x = ev.clientX + (rect ? rect.left : 0);
+				const y = ev.clientY + (rect ? rect.top : 0);
 
-			// console.log('selected', this.getCurrentSelectedText(contents));
-			getContextMenu(this.getCurrentSelectedText(contents),
-				// highlight
-				() => {
-					if (this.currentSelectedCfi) {
-						this.plugin.addHighlight(
-							this.file,
-							this.currentSelectedCfi,
-							'red',
-							this.getCurrentSelectedText(contents)
-						);
-						this.onAddAnnotation(this.currentSelectedCfi, 'red');
-						contents.window.getSelection()?.removeAllRanges();
-					}
+				this.menu(contents, book, {x, y});
 
-				},
-				// bookmark
-				() => {
-					const chapterName = this.getChapterName(book, this.currentCfi);
-					const pageNo = book.locations.locationFromCfi(this.currentCfi);
-					const content = `${chapterName}|${pageNo}`;
-					this.plugin.addBookmark(this.file, this.currentCfi, content);
-				},
-				// notes
-				() => {
-
-				}
-			).showAtPosition({x, y});
-
-
+			}
 		})
+	}
+
+	menu(contents: Contents, book: Book, position: { x: number, y: number }) {
+
+		getContextMenu(this.getCurrentSelectedText(contents),
+			// highlight
+			() => {
+				if (this.currentSelectedCfi) {
+					this.plugin.addHighlight(
+						this.file,
+						this.currentSelectedCfi,
+						'red',
+						this.getCurrentSelectedText(contents)
+					);
+					this.onAddAnnotation(this.currentSelectedCfi, 'red');
+					contents.window.getSelection()?.removeAllRanges();
+				}
+
+			},
+			// bookmark
+			() => {
+				const chapterName = this.getChapterName(book, this.currentCfi);
+				const pageNo = book.locations.locationFromCfi(this.currentCfi);
+				const content = `${chapterName}|${pageNo}`;
+				this.plugin.addBookmark(this.file, this.currentCfi, content);
+			},
+			// notes
+			() => {
+
+			}
+		).showAtPosition(position);
 	}
 
 	redirectMouseGesture(contents: Contents, e: MouseEvent, type: string) {
@@ -808,7 +813,7 @@ export class EpubView extends FileView {
 		}, 'highlight', {'fill': color, 'opacity': .5});
 	}
 
-	getPosition(cfiRange: string): MenuPositionDef {
+	getPosition(cfiRange: string) {
 		const iframe = this.epubView.querySelector('iframe');
 		if (!iframe) return {x: 0, y: 0};
 
