@@ -175,7 +175,16 @@ export class EpubView extends FileView {
 				// await this.rendition.display(section.href);
 				console.log('go to', cfi);
 				this.pushHistory(this.currentCfi);
-				this.rendition.display(cfi);
+				try {
+					this.rendition.display(cfi);
+				} catch (err) {
+					console.error("nav", err);
+					const section = this.rendition.book.spine.get(cfi);
+					if (section) {
+						this.rendition.display(section.href);
+					}
+				}
+
 
 			}).open();
 		});
@@ -767,7 +776,6 @@ export class EpubView extends FileView {
 
 	async loadChapters(book: Book) {
 		const tmpChapters: Chapter[] = [];
-		// await book.ready
 
 		for (const toc of book.navigation.toc) {
 			tmpChapters.push({
