@@ -19,7 +19,7 @@ import {getContextMenu} from "./ContextMenu";
 export const VIEW_TYPE_EPUB = "epub"
 
 export class EpubView extends FileView {
-	navigation = false
+	navigation = true
 	allowNoFile: false;
 	//
 	private plugin: BookReader;
@@ -530,7 +530,7 @@ export class EpubView extends FileView {
 
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
-			
+
 			if(!this.currentSelectedCfi){
 				this.handleGesture(touchStartX, touchEndX);
 			}
