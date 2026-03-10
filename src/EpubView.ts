@@ -531,10 +531,14 @@ export class EpubView extends FileView {
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
 			contents.document.getSelection();
-			if (!contents.document.getSelection()) {
+			const selection = contents.window.getSelection();
+			const selectedText = selection? selection.toString() : null;
+
+			if (!selectedText) {
 				this.handleGesture(touchStartX, touchEndX);
 			}else {
-				this.menu(contents, this.rendition.book, {x: 0, y: 0});
+				console.error('selected', selectedText);
+				this.showMenu(contents, this.rendition.book, {x: 0, y: 0});
 			}
 
 		});
@@ -638,13 +642,13 @@ export class EpubView extends FileView {
 				const x = ev.clientX + (rect ? rect.left : 0);
 				const y = ev.clientY + (rect ? rect.top : 0);
 
-				this.menu(contents, book, {x, y});
+				this.showMenu(contents, book, {x, y});
 
 			}
 		})
 	}
 
-	menu(contents: Contents, book: Book, position: { x: number, y: number }) {
+	showMenu(contents: Contents, book: Book, position: { x: number, y: number }) {
 
 		getContextMenu(this.getCurrentSelectedText(contents),
 			// highlight
@@ -676,6 +680,7 @@ export class EpubView extends FileView {
 			// cancel
 			()=>{
 				this.currentSelectedCfi = null;
+				contents.window.getSelection()?.removeAllRanges();
 			}
 		).showAtPosition(position);
 	}
