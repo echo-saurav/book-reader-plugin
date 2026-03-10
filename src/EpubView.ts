@@ -538,6 +538,11 @@ export class EpubView extends FileView {
 			}
 
 		});
+
+		contents.document.body.addEventListener('touchcancel', e => {
+			this.currentSelectedCfi = null;
+		});
+
 	}
 
 	handleGesture(touchStartX: any, touchEndX: any) {
@@ -625,7 +630,7 @@ export class EpubView extends FileView {
 		contents.document.addEventListener('contextmenu', (ev) => {
 			ev.preventDefault();
 
-			if (Platform.isDesktop) {
+			if (Platform.isDesktop || Platform.isTablet) {
 				const iframe = contents.document.defaultView?.frameElement
 				const rect = iframe?.getBoundingClientRect();
 
@@ -653,6 +658,7 @@ export class EpubView extends FileView {
 					);
 					this.onAddAnnotation(this.currentSelectedCfi, 'red');
 					contents.window.getSelection()?.removeAllRanges();
+					this.currentSelectedCfi = null;
 				}
 
 			},
@@ -666,6 +672,10 @@ export class EpubView extends FileView {
 			// notes
 			() => {
 
+			},
+			// cancel
+			()=>{
+				this.currentSelectedCfi = null;
 			}
 		).showAtPosition(position);
 	}

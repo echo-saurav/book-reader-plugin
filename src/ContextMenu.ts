@@ -4,7 +4,8 @@ export const getContextMenu = (
 	selectedText: string | null | undefined,
 	onHighlight: () => void,
 	onBookmark: () => void,
-	onTakeNote: () => void
+	onTakeNote: () => void,
+	onCancel: () => void,
 ) => {
 
 	const menu = new Menu();
@@ -46,6 +47,10 @@ export const getContextMenu = (
 
 	});
 
+
+	menu.onHide(()=>{
+
+	})
 
 	return menu;
 
