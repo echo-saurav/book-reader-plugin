@@ -353,8 +353,10 @@ export class EpubView extends FileView {
 
 			if (touchStartY > touchEndY + threshold) {
 				console.log('User is dragging UP (Scrolling Down)');
+				document.body.classList.remove('is-hidden-nav');
 			} else if (touchStartY < touchEndY - threshold) {
 				console.log('User is dragging DOWN (Scrolling Up)');
+				document.body.classList.add('is-hidden-nav');
 			}
 
 			// Optional: Update start position to make it "continuous"
