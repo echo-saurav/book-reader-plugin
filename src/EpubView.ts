@@ -36,6 +36,7 @@ export class EpubView extends FileView {
 	private buttonContainer: HTMLElement;
 	private nextButton: HTMLElement;
 	private prevButton: HTMLElement;
+	private loading: HTMLElement;
 	// buttons
 	private addBookmarkButton: HTMLElement;
 	private chapterMenuButton: HTMLElement;
@@ -60,7 +61,7 @@ export class EpubView extends FileView {
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
 		super(leaf);
 		this.plugin = plugin;
-		const timeout = this.plugin.settings.updateDelay + 5 * 1000; // convert to minute
+		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
 		this.debounceUpdatePage = debounce(async (file: TFile, cfi: any) => {
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
@@ -71,6 +72,13 @@ export class EpubView extends FileView {
 		//
 		this.epubContainer = this.contentEl.createDiv({cls: 'epub-container'});
 		this.epubView = this.epubContainer.createDiv({cls: 'epub-view'});
+		// loading
+		this.loading = this.epubContainer.createDiv({cls: 'loading'});
+		this.loading.innerText = 'Initial loading could take some time , Please wait. Loading...';
+		this.loading.style.display = 'flex';
+
+
+
 		// ui buttons
 		this.menuContainer = this.epubContainer.createEl('div', {cls: 'menu-container'});
 		this.buttonContainer = this.menuContainer.createEl('div', {cls: 'button-container'});
@@ -194,6 +202,7 @@ export class EpubView extends FileView {
 		this.hideNavOnScroll();
 
 
+
 	}
 
 	async showHighlights() {
@@ -304,10 +313,12 @@ export class EpubView extends FileView {
 			manager: "default"
 		});
 		await book.ready
-		this.loadBookMap(book);
+		await this.loadBookMap(book);
 		this.applyDefaultTheme(this.rendition);
 		this.rendition.on('rendered', async (section: Section, contents: Contents) => {
 			if (!this.file) return
+
+			this.loading.style.display = 'none';
 
 			this.onMouseClick(contents);
 			this.loadChapters(book);

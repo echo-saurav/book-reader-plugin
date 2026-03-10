@@ -8,7 +8,7 @@
 	width: 100%;
 	margin: 0;
 	padding: 0;
-	background: var(--background-secondary);
+	background: var(--background-primary);
 	/* variables */
 	--bottom-margin: 150px;
 	--small-bottom-margin: 50px;
@@ -178,9 +178,25 @@
 	box-shadow: 0 0 10px rgba(0, 0, 0, 0.7) !important;
 	transition: all .2s;
 
-	/*position: fixed;*/
 	position: absolute;
 	min-width: 100px;
 	padding: 5px;
+
+}
+
+.loading{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	left: 50%;
+	top: 50%;
+	transform: translateX(-50%);
+
+	position: absolute;
+	z-index: 1000;
+
+	font-size: 20px;
+	color: white;
+	text-align: center;
 
 }
