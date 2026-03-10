@@ -533,6 +533,8 @@ export class EpubView extends FileView {
 
 			if(!this.currentSelectedCfi){
 				this.handleGesture(touchStartX, touchEndX);
+			}else {
+				this.menu(contents, this.rendition.book, {x: 0, y: 0});
 			}
 
 		});
