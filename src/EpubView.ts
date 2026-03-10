@@ -173,6 +173,7 @@ export class EpubView extends FileView {
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
 				// const section = this.rendition.book.spine.get(cfi);
 				// await this.rendition.display(section.href);
+				console.log('go to', cfi);
 				this.pushHistory(this.currentCfi);
 				this.rendition.display(cfi);
 
@@ -400,24 +401,41 @@ export class EpubView extends FileView {
 		let totalSections = 0;
 		rendition.book.spine.each(() => totalSections++);
 
-		const nextSection = section.index < totalSections - 1 ? book.spine.get(section.index + 1) : null;
-		if (nextSection) {
-			return book.navigation.get(nextSection.href).label
+		if (section.index < totalSections - 1) {
+			const nextSection = book.spine.get(section.index + 1);
+			if (nextSection) {
+				const navItem = book.navigation.get(nextSection.canonical) ||
+					book.navigation.get(nextSection.href);
+				if (navItem) {
+					return navItem.label.trim();
+				}
+				return nextSection.idref || `Chapter ${nextSection.index + 1}`;
+			}
 		}
+
 		return null
 	}
+
 
 	getPrevChapter(rendition: Rendition, section: Section, book: Book) {
 		let totalSections = 0;
 		rendition.book.spine.each(() => totalSections++);
 
-		const prevSection = section.index > 0 ? book.spine.get(section.index - 1) : null;
-		if (prevSection) {
-			return book.navigation.get(prevSection.href).label
-		}
-		return null
-	}
 
+		if (section.index > 0) {
+			const prevSection = book.spine.get(section.index - 1);
+			if (prevSection) {
+				const navItem = book.navigation.get(prevSection.canonical) ||
+					book.navigation.get(prevSection.href);
+
+				if (navItem && navItem.label) {
+					return navItem.label.trim();
+				}
+				return prevSection.idref || `Chapter ${prevSection.index}`;
+			}
+		}
+		return null;
+	}
 
 	onPageChangeListener(rendition: Rendition) {
 		rendition.on("relocated", async (range: any) => {
