@@ -17,6 +17,7 @@ export class EpubView extends FileView {
 	private buttonTimeoutReset = 1000 * 10;
 	private debounceUpdatePage: Debouncer<[file: TFile, cfi: any], Promise<void>>;
 	private debounceHideButton: Debouncer<[], Promise<void>>;
+	private debounceRenderDisplay: Debouncer<[cfi: string], Promise<void>>;
 
 	chapters: Chapter[] = [];
 	//views
@@ -349,6 +350,7 @@ export class EpubView extends FileView {
 			if (!this.file) return
 
 
+			console.log(`Loaded ${section}`);
 			this.loading.style.display = 'none';
 
 			this.hideNavOnScroll(contents);
@@ -469,25 +471,39 @@ export class EpubView extends FileView {
 	}
 
 	onPageChangeListener(rendition: Rendition) {
-		rendition.on("relocated", async (range: any) => {
+		const timeout = 1000;
+		const debounceUpdatePage = debounce((book: Book) => {
+			this.updateProgressUI(book);
+		}, timeout, true);
+
+		rendition.on("relocated", async (location: any) => {
 			if (this.file == null) return
 			if (this.isRestoring) return;
 
-			const cfiStart = range.start.cfi;
-			const cfiEnd = range.end.cfi;
+			const cfiStart = location.start.cfi;
+			const cfiEnd = location.end.cfi;
 			this.currentCfi = cfiStart;
 			this.debounceUpdatePage(this.file, cfiStart);
-			this.updateProgressUI(rendition.book, cfiEnd);
+			console.log('lo', rendition.currentLocation())
+			// this.updateProgressUI(rendition.book);
 
+			debounceUpdatePage(this.rendition.book);
 		});
 	}
 
-	updateProgressUI(book: Book, cfi: string) {
+	updateProgressUI(book: Book) {
 		if (!book) return;
 		if (!book.locations) return;
 
-		const progressString = book.locations.percentageFromCfi(cfi);
-		const progress = Math.round(Number(progressString) * 100);
+		// const progressString = book.locations.percentageFromCfi(cfi);
+		// const progress = Math.round(Number(progressString) * 100);
+		// //
+		// const pageNo = book.locations.locationFromCfi(cfi);
+		// const totalPages = book.locations.length();
+		// const content = `${pageNo} of ${totalPages} | ${progress}%`;
+		// console.log('update', content)
+		// console.log("cfi", cfi);
+		// this.pageInfo.innerText = pageNo.toString();
 		//
 		const currentLocation = this.rendition.currentLocation();
 		const sectionIndex = (currentLocation as any).start.index;
@@ -517,9 +533,7 @@ export class EpubView extends FileView {
 
 	onSelectionListener(rendition: Rendition) {
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
-
 			this.currentSelectedCfi = cfiRange;
-
 		});
 	}
 
@@ -823,7 +837,6 @@ export class EpubView extends FileView {
 			"p": {
 				"font-size": "23px !important"
 			},
-
 			"a": {
 				"color": linkColor,
 			}
@@ -834,7 +847,7 @@ export class EpubView extends FileView {
 		const allHighlights: string[] = await this.plugin.getAllHighlights(file);
 
 		for (const highlight of allHighlights) {
-			console.log(highlight);
+			// console.log(highlight);
 			const data = highlight.split('|');
 			const cfi = data[0];
 			const color = data[1] ? data[1] : 'yellow';
@@ -880,6 +893,8 @@ export class EpubView extends FileView {
 		if (!this.file) return;
 		if (this.passedCfi) {
 			await this.rendition.display(this.passedCfi);
+			await this.rendition.display(this.passedCfi);
+			this.loading.style.display = 'none';
 			return;
 		} else {
 			const markdownFile = await this.plugin.getMarkdownFile(this.file);
@@ -889,10 +904,15 @@ export class EpubView extends FileView {
 			if (!metadata) {
 				console.log('no metadata found');
 				await this.rendition.display();
+				this.loading.style.display = 'none';
 			} else if (metadata && metadata[this.plugin.settings.currentPageRefKey]) {
 				const cfi = metadata[this.plugin.settings.currentPageRefKey];
 				console.log('loading page', cfi);
 				await this.rendition.display(cfi);
+				this.debounceRenderDisplay(cfi);
+				// await this.rendition.display(cfi);
+				// await this.rendition.display(cfi);
+				this.loading.style.display = 'none';
 			}
 		}
 
@@ -1034,8 +1054,9 @@ export class EpubView extends FileView {
 
 			//
 			const delayJump = debounce(async () => {
-				this.rendition.display(this.passedCfi);
-			}, 600);
+				await this.rendition.display(this.passedCfi);
+				this.debounceRenderDisplay(this.passedCfi);
+			}, 1000);
 
 			delayJump();
 
