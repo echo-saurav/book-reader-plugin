@@ -484,9 +484,30 @@ export class EpubView extends FileView {
 		const progressString = book.locations.percentageFromCfi(cfi);
 		const progress = Math.round(Number(progressString) * 100);
 		//
-		const pageNo = book.locations.locationFromCfi(cfi);
-		const totalPages = book.locations.length();
-		this.pageInfo.innerText = `${pageNo} of ${totalPages} | ${progress}%`;
+		const currentLocation = this.rendition.currentLocation();
+		const sectionIndex = (currentLocation as any).start.index;
+		const sectionPages = (currentLocation as any).start.displayed.total;
+		const sectionBaseCFI = book.spine.get(sectionIndex).cfiBase;
+
+		const sectionStartLocation = (book.locations as any)._locations.findIndex((item: any) =>
+			item.startsWith("epubcfi(" + sectionBaseCFI)
+		);
+		const sectionLocations = (book.locations as any)._locations.filter((item: any) =>
+			item.startsWith("epubcfi(" + sectionBaseCFI)
+		).length;
+
+		const totalLocations = book.locations.length();
+		const estPages = Math.round((totalLocations * sectionPages) / sectionLocations);
+		const estSectionStartPage =
+			estPages * (sectionStartLocation / totalLocations);
+		const estCurrentPage =
+			Math.round(estSectionStartPage + (currentLocation as any).start.displayed.page);
+
+		const progress = Math.round((estCurrentPage / estPages) * 100);
+
+		console.log('estCurrentPage', estCurrentPage);
+		this.pageInfo.innerText = `${estCurrentPage} of ${estPages} | ${progress}%`;
+
 	}
 
 	onSelectionListener(rendition: Rendition) {
