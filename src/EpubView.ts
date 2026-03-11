@@ -178,6 +178,13 @@ export class EpubView extends FileView {
 			}
 		});
 
+		this.addBookmarkButton.addEventListener('click', async (e) => {
+			const pageNo = this.rendition.book.locations.locationFromCfi(this.currentCfi);
+			const chapterName = this.getChapterName(this.rendition.book, this.currentCfi);
+			const content = `${chapterName}|${pageNo}`;
+			this.plugin.addBookmark(this.file, this.currentCfi, content);
+		})
+
 		this.bookmarksMenuButton.addEventListener('click', async (e) => {
 			this.showBookmarks();
 		})
