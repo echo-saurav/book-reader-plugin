@@ -180,17 +180,17 @@ export default class BookReader extends Plugin {
 
 	// other updates
 	async updatePageProgress(bookFile: TFile, cfi: string) {
-		console.log('updatePage', cfi)
+		// console.log('updatePage', cfi)
 		const markdownFile = await this.getMarkdownFile(bookFile);
-		console.log('before found markdown', markdownFile);
+		// console.log('before found markdown', markdownFile);
 		if (!markdownFile) return null
-		console.log('found markdown', markdownFile);
+		// console.log('found markdown', markdownFile);
 
 		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
 			frontmatter[this.settings.currentPageRefKey] = cfi
-			console.log('updatePage', cfi)
-			console.log('frontmatter', frontmatter);
-			console.log("markdownFile",markdownFile);
+			// console.log('updatePage', cfi)
+			// console.log('frontmatter', frontmatter);
+			// console.log("markdownFile",markdownFile);
 		});
 	}
 
@@ -200,7 +200,7 @@ export default class BookReader extends Plugin {
 		const bookNotePath = this.settings.nameTemplate.replace('{{filename}}', file.name);
 		// const bookFilePath =`${this.settings.bookNotesFolder}/${bookNoteName}`
 		// const bookFilePath =`${this.settings.bookNotesFolder}/${bookNoteName}`
-		console.log('book file path', bookNotePath);
+		// console.log('book file path', bookNotePath);
 		return bookNotePath;
 	}
 

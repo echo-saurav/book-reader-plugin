@@ -1,14 +1,4 @@
-import {
-	debounce,
-	Debouncer,
-	FileView,
-	Menu,
-	Platform,
-	setIcon,
-	TFile,
-	ViewStateResult,
-	WorkspaceLeaf
-} from "obsidian";
+import {debounce, Debouncer, FileView, Menu, Platform, setIcon, TFile, ViewStateResult, WorkspaceLeaf} from "obsidian";
 import BookReader from "./main";
 import ePub, {Book, Contents, Rendition} from "epubjs";
 import {Chapter, ChaptersList} from "./ChaptersList";
@@ -49,6 +39,7 @@ export class EpubView extends FileView {
 	private pageSize = 1024
 	//
 	private currentCfi: string;
+	private passedCfi: string;
 	private currentSelectedCfi: string | null;
 	//
 	private isRestoring = false;
@@ -60,6 +51,7 @@ export class EpubView extends FileView {
 		this.plugin = plugin;
 		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
 		this.debounceUpdatePage = debounce(async (file: TFile, cfi: any) => {
+			console.log('updating progress', cfi);
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
 	}
@@ -170,29 +162,9 @@ export class EpubView extends FileView {
 		this.chapterMenuButton.addEventListener('click', async (e) => {
 
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
-				// const section = this.rendition.book.spine.get(cfi);
-				// await this.rendition.display(section.href);
 				console.log('go to', cfi);
+				await this.rendition.display(cfi);
 				this.pushHistory(this.currentCfi);
-				this.rendition.display(cfi)
-				// const section = this.rendition.book.spine.get(cfi);
-				// if (section) {
-				// 	// const convertToCfi= section.cfiFromElement(section.contents)
-				// 	console.log('sec', section.canonical);
-				// 	this.rendition.display(section.canonical);
-				//
-				// }
-				// try {
-				// 	this.rendition.display(cfi);
-				// } catch (err) {
-				// 	console.error("nav", err);
-				// 	const section = this.rendition.book.spine.get(cfi);
-				// 	if (section) {
-				// 		this.rendition.display(section.href);
-				// 	}
-				// }
-
-
 			}).open();
 		});
 
@@ -333,6 +305,7 @@ export class EpubView extends FileView {
 
 
 	async onLoadFile(file: TFile) {
+		console.log(`Loaded ${file}`);
 		this.file = file;
 		this.createView();
 		const contents = await this.app.vault.readBinary(file);
@@ -352,6 +325,14 @@ export class EpubView extends FileView {
 		await book.ready
 		await this.loadBookMap(book);
 		this.applyDefaultTheme(this.rendition);
+		await this.rendition.display();
+		//
+		this.handleResources(this.rendition, book);
+		this.onPageChangeListener(this.rendition);
+		this.onSelectionListener(this.rendition);
+		//
+		await this.goToLastReadingPage();
+
 		this.rendition.on('rendered', async (section: Section, contents: Contents) => {
 			if (!this.file) return
 
@@ -369,11 +350,11 @@ export class EpubView extends FileView {
 			//
 			this.populateHighlight(this.file);
 
+
 		});
-		this.goToLastReadingPage();
-		this.handleResources(this.rendition, book);
-		this.onPageChangeListener(this.rendition);
-		this.onSelectionListener(this.rendition);
+
+
+
 
 		return super.onLoadFile(file);
 	}
@@ -487,6 +468,7 @@ export class EpubView extends FileView {
 			this.currentCfi = cfiStart;
 			this.debounceUpdatePage(this.file, cfiStart);
 			this.updateProgressUI(rendition.book, cfiEnd);
+
 		});
 	}
 
@@ -522,7 +504,9 @@ export class EpubView extends FileView {
 
 	overrideTouchSwipe(contents: Contents) {
 		let touchStartX = 0;
+		let touchStartY = 0;
 		let touchEndX = 0;
+		let touchEndY = 0;
 
 		contents.document.body.addEventListener('touchstart', e => {
 			touchStartX = e.changedTouches[0].screenX;
@@ -530,13 +514,15 @@ export class EpubView extends FileView {
 
 		contents.document.body.addEventListener('touchend', e => {
 			touchEndX = e.changedTouches[0].screenX;
+			touchEndY = e.changedTouches[0].screenY;
+
 			contents.document.getSelection();
 			const selection = contents.window.getSelection();
-			const selectedText = selection? selection.toString() : null;
+			const selectedText = selection ? selection.toString() : null;
 
 			if (!selectedText) {
-				this.handleGesture(touchStartX, touchEndX);
-			}else {
+				this.handleGesture(touchStartX, touchEndX, touchStartY, touchEndY);
+			} else {
 				console.error('selected', selectedText);
 				this.showMenu(contents, this.rendition.book, {x: 0, y: 0});
 			}
@@ -549,26 +535,38 @@ export class EpubView extends FileView {
 
 	}
 
-	handleGesture(touchStartX: any, touchEndX: any) {
-		const threshold = 80;
+	handleGesture(startX: number, endX: number, startY: number, endY: number) {
+		const dx = endX - startX;
+		const dy = endY - startY;
+
+		const absDx = Math.abs(dx);
+		const absDy = Math.abs(dy);
+
+		const ratio = absDy === 0 ? absDx : absDx / absDy;
+
 		const toggleLeft = "app:toggle-left-sidebar";
 		const toggleRight = "app:toggle-right-sidebar";
 
-		if (touchEndX < touchStartX - threshold) {
-			console.log('Swiped Left');
 
-			(this.plugin.app as any).commands.executeCommandById(toggleRight);
+		let isIntentional = false;
+
+		if (absDx > 100) {
+			// High distance = High confidence
+			isIntentional = true;
+		} else if (absDx > 50 && ratio > 2.0) {
+			// Small distance = Needs high horizontal-to-vertical ratio
+			isIntentional = true;
 		}
 
-		if (touchEndX > touchStartX + threshold) {
-			console.log('Swiped Right');
-
-			(this.plugin.app as any).commands.executeCommandById(toggleLeft);
+		if (isIntentional) {
+			if (dx < 0) {
+				console.log('Swipe Left confirmed (Ratio: ' + ratio.toFixed(2) + ')');
+				(this.plugin.app as any).commands.executeCommandById(toggleRight);
+			} else {
+				console.log('Swipe Right confirmed (Ratio: ' + ratio.toFixed(2) + ')');
+				(this.plugin.app as any).commands.executeCommandById(toggleLeft);
+			}
 		}
-
-		//
-
-
 	}
 
 	onMouseClick(contents: Contents) {
@@ -678,7 +676,7 @@ export class EpubView extends FileView {
 
 			},
 			// cancel
-			()=>{
+			() => {
 				this.currentSelectedCfi = null;
 				contents.window.getSelection()?.removeAllRanges();
 			}
@@ -799,7 +797,6 @@ export class EpubView extends FileView {
 
 	async populateHighlight(file: TFile) {
 		const allHighlights: string[] = await this.plugin.getAllHighlights(file);
-		console.log(allHighlights);
 
 		for (const highlight of allHighlights) {
 			console.log(highlight);
@@ -846,15 +843,25 @@ export class EpubView extends FileView {
 
 	async goToLastReadingPage() {
 		if (!this.file) return;
-		const markdownFile = await this.plugin.getMarkdownFile(this.file);
-		const metadata = this.plugin.getFrontmatter(markdownFile);
+		if (this.passedCfi) {
+			await this.rendition.display(this.passedCfi);
+			return;
+		} else {
+			const markdownFile = await this.plugin.getMarkdownFile(this.file);
+			const metadata = this.plugin.getFrontmatter(markdownFile);
 
-		if (!metadata) {
-			// console.log('no metadata found');
-			await this.rendition.display();
-		} else if (metadata && metadata[this.plugin.settings.currentPageRefKey]) {
-			await this.rendition.display(metadata[this.plugin.settings.currentPageRefKey]);
+
+			if (!metadata) {
+				console.log('no metadata found');
+				await this.rendition.display();
+			} else if (metadata && metadata[this.plugin.settings.currentPageRefKey]) {
+				const cfi = metadata[this.plugin.settings.currentPageRefKey];
+				console.log('loading page', cfi);
+				await this.rendition.display(cfi);
+			}
 		}
+
+
 	}
 
 	handleResources(rendition: Rendition, book: Book) {
@@ -960,22 +967,44 @@ export class EpubView extends FileView {
 	}
 
 
-	async setState(state: any, result: ViewStateResult): Promise<void> {
-		if (state.cfi && state.cfi !== this.currentCfi) {
-			this.currentCfi = state.cfi;
-			if (this.rendition) {
-				await this.rendition.display(state.cfi);
-			}
-		}
+	// async setState(state: any, result: ViewStateResult): Promise<void> {
+	// 	if (state.cfi && state.cfi !== this.currentCfi) {
+	// 		this.currentCfi = state.cfi;
+	// 		if (this.rendition) {
+	// 			await this.rendition.display(state.cfi);
+	// 		}
+	// 	}
+	//
+	// 	console.log('set state', state);
+	// 	await super.setState(state, result);
+	// }
 
-		await super.setState(state, result);
+	setState(state: any, result: ViewStateResult) {
+		// if (this.currentCfi) {
+		// 	return super.setState(null, result);
+		// } else {
+		// 	return super.setState(state, result);
+		// }
+
+		console.log("setstate", state);
+		return super.setState(state, result);
 	}
 
 	setEphemeralState(state: any) {
 		super.setEphemeralState(state);
 
+
 		if (state.subpath && state.subpath.slice(1)) {
-			this.rendition.display(state.subpath.slice(1));
+			this.passedCfi = state.subpath.slice(1);
+
+			//
+			const delayJump = debounce(async () => {
+				this.rendition.display(this.passedCfi);
+			},600);
+
+			delayJump();
+
+
 		}
 	}
 
