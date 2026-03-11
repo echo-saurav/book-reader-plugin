@@ -49,8 +49,9 @@ export const getContextMenu = (
 
 
 	menu.onHide(()=>{
-
+		onCancel();
 	})
+
 
 	return menu;
 

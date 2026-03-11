@@ -1,4 +1,4 @@
-import {Plugin, TFile, WorkspaceLeaf} from 'obsidian';
+import {Notice, Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
 import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
 import {EpubView} from "./EpubView";
@@ -120,9 +120,13 @@ export default class BookReader extends Plugin {
 		this.pushDataToFrontmatter(bookFile, this.settings.highlightsKey, newHighlight);
 	}
 
-	async addBookmark(bookFile: TFile | null, cfi: string, content: string) {
+	async addBookmark(bookFile: TFile | null, cfi: string, content: string | null) {
+		if (!cfi) {
+			new Notice("Bookmark added failed.");
+		}
 		const newBookmark = `${cfi}|${content}`
 		this.pushDataToFrontmatter(bookFile, this.settings.bookmarksKey, newBookmark);
+		new Notice(`Bookmark added successfully (${content?.substring(0, 20)}) `);
 	}
 
 	async addNote(bookFile: TFile, cfi: string, color: string | null, note: string, content: string) {
@@ -255,8 +259,6 @@ export default class BookReader extends Plugin {
 
 
 		(this.app as any).commands.executeCommandById(toggleLeft);
-
-
 
 
 	}

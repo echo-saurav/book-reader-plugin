@@ -361,8 +361,6 @@ export class EpubView extends FileView {
 		});
 
 
-
-
 		return super.onLoadFile(file);
 	}
 
@@ -421,7 +419,7 @@ export class EpubView extends FileView {
 		if (navItem && navItem.label) {
 			return navItem.label;
 		}
-		return null
+		return ""
 
 	}
 
@@ -794,7 +792,10 @@ export class EpubView extends FileView {
 				"height": "50px",
 			},
 			"span": {
-				"font-size": "20px !important"
+				"font-size": "23px !important"
+			},
+			"p": {
+				"font-size": "23px !important"
 			},
 			"a": {
 				"color": linkColor,
@@ -809,7 +810,7 @@ export class EpubView extends FileView {
 			console.log(highlight);
 			const data = highlight.split('|');
 			const cfi = data[0];
-			const color = data.length == 2 ? data[1] : 'yellow';
+			const color = data[1] ? data[1] : 'yellow';
 
 			this.onAddAnnotation(cfi, color);
 
@@ -1007,7 +1008,7 @@ export class EpubView extends FileView {
 			//
 			const delayJump = debounce(async () => {
 				this.rendition.display(this.passedCfi);
-			},600);
+			}, 600);
 
 			delayJump();
 
