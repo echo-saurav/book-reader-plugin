@@ -54,6 +54,11 @@ export class EpubView extends FileView {
 			console.log('updating progress', cfi);
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
+
+		this.debounceRenderDisplay = debounce(async (cfi: string) => {
+			if (this.rendition)
+				await this.rendition.display(cfi);
+		}, 1000, true);
 	}
 
 	createView() {
