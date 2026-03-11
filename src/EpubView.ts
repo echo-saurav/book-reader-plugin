@@ -797,6 +797,7 @@ export class EpubView extends FileView {
 			"p": {
 				"font-size": "23px !important"
 			},
+
 			"a": {
 				"color": linkColor,
 			}
