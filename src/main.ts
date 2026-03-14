@@ -117,7 +117,11 @@ export default class BookReader extends Plugin {
 		if (!cfiRange && !bookFile) return;
 		const newHighlight = `${cfiRange}|${color}|${content}`;
 		// const newHighlight = `${cfiRange}|${color}`;
+		console.log(newHighlight);
 		this.pushDataToFrontmatter(bookFile, this.settings.highlightsKey, newHighlight);
+		// append to file
+		const highlightLink = `[[${bookFile?.path}#${cfiRange}|${content}]]`
+		this.appendToFile(bookFile, highlightLink);
 	}
 
 	async addBookmark(bookFile: TFile | null, cfi: string, content: string | null) {
@@ -237,6 +241,16 @@ export default class BookReader extends Plugin {
 			frontmatter[key] = keyValues;
 
 		});
+	}
+
+	async appendToFile(bookFile: TFile | null, content: string) {
+		if (!bookFile) return
+
+		const markdownFile = await this.getMarkdownFile(bookFile);
+		if (!markdownFile) return null
+
+		await this.app.vault.append(markdownFile, content);
+
 	}
 
 	async removeDataFromFrontmatter(bookFile: TFile | null, key: string, deletingData: any) {

@@ -59,7 +59,7 @@ export class EpubView extends FileView {
 		this.debounceRenderDisplay = debounce(async (cfi: string) => {
 			if (this.rendition)
 				await this.rendition.display(cfi);
-		}, 1000, true);
+		}, 3000, true);
 	}
 
 	createView() {
@@ -178,7 +178,13 @@ export class EpubView extends FileView {
 			if (this.linkHistory.length > 0 && this.rendition) {
 				const lastCfi = this.linkHistory[this.linkHistory.length - 1];
 				console.log(lastCfi)
-				this.rendition.display(lastCfi);
+				await this.rendition.book.ready
+ 				await this.rendition.display(lastCfi);
+				this.rendition.once("rendered", () => {
+					this.rendition.display(lastCfi);
+				});
+				// this.debounceRenderDisplay(lastCfi);
+				// await this.rendition.display(lastCfi);
 				this.linkHistory.remove(lastCfi);
 				this.restBackNavigationButton();
 			}
@@ -483,8 +489,8 @@ export class EpubView extends FileView {
 			const cfiStart = location.start.cfi;
 			const cfiEnd = location.end.cfi;
 			this.currentCfi = cfiStart;
-			this.debounceUpdatePage(this.file, cfiStart);
-			console.log('lo', rendition.currentLocation())
+			this.debounceUpdatePage(this.file, rendition.currentLocation().cfi);
+
 			// this.updateProgressUI(rendition.book);
 
 			debounceUpdatePage(this.rendition.book);
@@ -534,6 +540,7 @@ export class EpubView extends FileView {
 	onSelectionListener(rendition: Rendition) {
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
 			this.currentSelectedCfi = cfiRange;
+			console.log('on select', this.currentSelectedCfi);
 		});
 	}
 
@@ -665,8 +672,9 @@ export class EpubView extends FileView {
 				if (href && href.indexOf("://") === -1) { // It's an internal link
 					ev.preventDefault();
 					// rendition.display(href);
-					const cfi = rendition.location.start.cfi
-					this.pushHistory(cfi);
+					// const cfi = rendition.location.start.cfi
+					// this.pushHistory(cfi);
+					this.pushHistory(this.currentCfi);
 
 				}
 			});
@@ -695,17 +703,19 @@ export class EpubView extends FileView {
 
 		getContextMenu(this.getCurrentSelectedText(contents),
 			// highlight
-			() => {
+			async () => {
+				console.log(this.currentSelectedCfi);
 				if (this.currentSelectedCfi) {
-					this.plugin.addHighlight(
+					this.onAddAnnotation(this.currentCfi, 'red');
+					contents.window.getSelection()?.removeAllRanges();
+					this.currentSelectedCfi = null;
+
+					await this.plugin.addHighlight(
 						this.file,
-						this.currentSelectedCfi,
+						this.currentCfi,
 						'red',
 						this.getCurrentSelectedText(contents)
 					);
-					this.onAddAnnotation(this.currentSelectedCfi, 'red');
-					contents.window.getSelection()?.removeAllRanges();
-					this.currentSelectedCfi = null;
 				}
 
 			},
@@ -722,8 +732,8 @@ export class EpubView extends FileView {
 			},
 			// cancel
 			() => {
-				this.currentSelectedCfi = null;
-				contents.window.getSelection()?.removeAllRanges();
+				// this.currentSelectedCfi = null;
+				// contents.window.getSelection()?.removeAllRanges();
 			}
 		).showAtPosition(position);
 	}
