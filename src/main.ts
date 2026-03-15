@@ -1,7 +1,6 @@
 import {Notice, Plugin, TFile, WorkspaceLeaf} from 'obsidian';
 import BookReaderSettingsTab from "./BookReaderSettingsTab";
-import {EpubViewer, VIEW_TYPE_EPUB} from "./EpubViewer";
-import {EpubView} from "./EpubView";
+import {EpubView, VIEW_TYPE_EPUB} from "./EpubView";
 
 
 interface BookReaderSettings {

@@ -17,7 +17,7 @@ export class EpubView extends FileView {
 	private buttonTimeoutReset = 1000 * 10;
 	private debounceUpdatePage: Debouncer<[file: TFile, cfi: any], Promise<void>>;
 	private debounceHideButton: Debouncer<[], Promise<void>>;
-	private debounceRenderDisplay: Debouncer<[cfi: string], Promise<void>>;
+	// private debounceRenderDisplay: Debouncer<[cfi: string], Promise<void>>;
 
 	chapters: Chapter[] = [];
 	//views
@@ -56,10 +56,10 @@ export class EpubView extends FileView {
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
 
-		this.debounceRenderDisplay = debounce(async (cfi: string) => {
-			if (this.rendition)
-				await this.rendition.display(cfi);
-		}, 3000, true);
+		// this.debounceRenderDisplay = debounce(async (cfi: string) => {
+		// 	if (this.rendition)
+		// 		await this.rendition.display(cfi);
+		// }, 3000, true);
 	}
 
 	createView() {
@@ -169,7 +169,8 @@ export class EpubView extends FileView {
 
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
 				console.log('go to', cfi);
-				await this.rendition.display(cfi);
+				// await this.rendition.display(cfi);
+				this.jumpToCfi(cfi);
 				this.pushHistory(this.currentCfi);
 			}).open();
 		});
@@ -178,11 +179,12 @@ export class EpubView extends FileView {
 			if (this.linkHistory.length > 0 && this.rendition) {
 				const lastCfi = this.linkHistory[this.linkHistory.length - 1];
 				console.log(lastCfi)
-				await this.rendition.book.ready
- 				await this.rendition.display(lastCfi);
-				this.rendition.once("rendered", () => {
-					this.rendition.display(lastCfi);
-				});
+				this.jumpToCfi(lastCfi);
+				// await this.rendition.book.ready
+				// await this.rendition.display(lastCfi);
+				// this.rendition.once("rendered", () => {
+				// 	this.rendition.display(lastCfi);
+				// });
 				// this.debounceRenderDisplay(lastCfi);
 				// await this.rendition.display(lastCfi);
 				this.linkHistory.remove(lastCfi);
@@ -918,8 +920,7 @@ export class EpubView extends FileView {
 			} else if (metadata && metadata[this.plugin.settings.currentPageRefKey]) {
 				const cfi = metadata[this.plugin.settings.currentPageRefKey];
 				console.log('loading page', cfi);
-				await this.rendition.display(cfi);
-				this.debounceRenderDisplay(cfi);
+				this.jumpToCfi(cfi);
 				// await this.rendition.display(cfi);
 				// await this.rendition.display(cfi);
 				this.loading.style.display = 'none';
@@ -1014,6 +1015,14 @@ export class EpubView extends FileView {
 		this.chapters = tmpChapters;
 	}
 
+	async jumpToCfi(cfi: string) {
+		this.rendition.display(cfi).then(() => {
+			this.rendition.once("rendered", () => {
+				this.rendition.display(cfi);
+			});
+		});
+	}
+
 
 	// Use Obsidian's resize hook to detect tab focus
 	// onResize() {
@@ -1063,12 +1072,13 @@ export class EpubView extends FileView {
 			this.passedCfi = state.subpath.slice(1);
 
 			//
-			const delayJump = debounce(async () => {
-				await this.rendition.display(this.passedCfi);
-				this.debounceRenderDisplay(this.passedCfi);
-			}, 1000);
-
-			delayJump();
+			// const delayJump = debounce(async () => {
+			// 	await this.rendition.display(this.passedCfi);
+			// 	this.debounceRenderDisplay(this.passedCfi);
+			// }, 1000);
+			//
+			// delayJump();
+			this.jumpToCfi(this.passedCfi);
 
 
 		}
