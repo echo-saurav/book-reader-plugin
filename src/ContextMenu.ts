@@ -48,7 +48,7 @@ export const getContextMenu = (
 	});
 
 
-	menu.onHide(()=>{
+	menu.onHide(() => {
 		console.log('on menu hide');
 		onCancel();
 	})

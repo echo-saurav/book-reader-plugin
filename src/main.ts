@@ -123,11 +123,11 @@ export default class BookReader extends Plugin {
 		this.appendToFile(bookFile, highlightLink);
 	}
 
-	async addBookmark(bookFile: TFile | null, cfi: string, content: string | null) {
+	async addBookmark(bookFile: TFile | null, cfi: string, pageNo: number, content: string | null) {
 		if (!cfi) {
 			new Notice("Bookmark added failed.");
 		}
-		const newBookmark = `${cfi}|${content}`
+		const newBookmark = `${cfi}|${pageNo}|${content}`
 		this.pushDataToFrontmatter(bookFile, this.settings.bookmarksKey, newBookmark);
 		new Notice(`Bookmark added successfully (${content?.substring(0, 20)}) `);
 	}
@@ -195,7 +195,7 @@ export default class BookReader extends Plugin {
 
 		await this.app.fileManager.processFrontMatter(markdownFile, frontmatter => {
 			frontmatter[this.settings.currentPageRefKey] = cfi
-			// console.log('updatePage', cfi)
+			console.log('updatePage', cfi)
 			// console.log('frontmatter', frontmatter);
 			// console.log("markdownFile",markdownFile);
 		});

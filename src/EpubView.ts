@@ -14,22 +14,27 @@ export class EpubView extends FileView {
 	//
 	private plugin: BookReader;
 	private rendition: Rendition;
+	//
 	private buttonTimeoutReset = 1000 * 10;
 	private debounceUpdatePage: Debouncer<[file: TFile, cfi: any], Promise<void>>;
 	private debounceHideButton: Debouncer<[], Promise<void>>;
-	// private debounceRenderDisplay: Debouncer<[cfi: string], Promise<void>>;
 
 	chapters: Chapter[] = [];
 	//views
 	private epubContainer: HTMLElement;
 	private epubView: HTMLElement;
-	private menuContainer: HTMLElement;
-	private buttonContainer: HTMLElement;
+
+	private leftViewContainer: HTMLElement;
 	private nextButton: HTMLElement;
 	private prevButton: HTMLElement;
 	private loading: HTMLElement;
+	//
+	private rightViewContainer: HTMLElement;
+	private bookmarkFlag: HTMLElement;
+	private contextMenu: HTMLElement;
 	// buttons
 	private backNavigationButton: HTMLElement;
+	private copyPageLinkButton: HTMLElement;
 	private addBookmarkButton: HTMLElement;
 	private chapterMenuButton: HTMLElement;
 	private bookmarksMenuButton: HTMLElement;
@@ -50,16 +55,13 @@ export class EpubView extends FileView {
 	constructor(leaf: WorkspaceLeaf, plugin: BookReader) {
 		super(leaf);
 		this.plugin = plugin;
-		const timeout = this.plugin.settings.updateDelay * 1000; // convert to minute
+		const timeout = this.plugin.settings.updateDelay * 1000; // convert to millisecond from second
+		//
 		this.debounceUpdatePage = debounce(async (file: TFile, cfi: any) => {
 			console.log('updating progress', cfi);
 			await this.plugin.updatePageProgress(file, cfi);
 		}, timeout, true);
 
-		// this.debounceRenderDisplay = debounce(async (cfi: string) => {
-		// 	if (this.rendition)
-		// 		await this.rendition.display(cfi);
-		// }, 3000, true);
 	}
 
 	createView() {
@@ -72,20 +74,35 @@ export class EpubView extends FileView {
 		this.loading.innerText = 'Initial loading could take some time , Please wait. Loading...';
 		this.loading.style.display = 'flex';
 
+		// right container
+		this.rightViewContainer = this.epubContainer.createEl('div', {cls: 'right-view-container'});
+		this.contextMenu = this.rightViewContainer.createEl('button', {cls: 'small-button hide-button'});
+		this.bookmarkFlag = this.rightViewContainer.createEl('button', {cls: 'small-button bookmark-flag hide-button'});
+		setIcon(this.bookmarkFlag, 'bookmark-check');
+		setIcon(this.contextMenu, 'highlighter');
+
 
 		// ui buttons
-		this.menuContainer = this.epubContainer.createEl('div', {cls: 'menu-container'});
-		this.buttonContainer = this.menuContainer.createEl('div', {cls: 'button-container'});
+		this.leftViewContainer = this.epubContainer.createEl('div', {cls: 'left-view-container'});
+
 
 		// back navigation
-		this.backNavigationButton = this.buttonContainer.createEl('button',
+		this.backNavigationButton = this.leftViewContainer.createEl('button',
 			{cls: 'small-button'}
 		);
 		setIcon(this.backNavigationButton, 'undo-2');
 
+		// copy
+		this.copyPageLinkButton = this.leftViewContainer.createEl('button', {
+			text: 'Copy page link',
+			cls: 'big-button '
+		});
+		const copyIcon = createEl('div');
+		setIcon(copyIcon, 'copy');
+		this.copyPageLinkButton.prepend(copyIcon);
 
 		// add bookmark
-		this.addBookmarkButton = this.buttonContainer.createEl('button', {
+		this.addBookmarkButton = this.leftViewContainer.createEl('button', {
 			text: 'Add bookmark',
 			cls: 'big-button '
 		});
@@ -94,7 +111,7 @@ export class EpubView extends FileView {
 		this.addBookmarkButton.prepend(addBookmarkIcon);
 
 		// chapter
-		this.chapterMenuButton = this.buttonContainer.createEl('button', {
+		this.chapterMenuButton = this.leftViewContainer.createEl('button', {
 			text: 'Chapters',
 			cls: 'big-button '
 		});
@@ -103,7 +120,7 @@ export class EpubView extends FileView {
 		this.chapterMenuButton.prepend(chapterIcon);
 
 		// bookmark
-		this.bookmarksMenuButton = this.buttonContainer.createEl('button', {
+		this.bookmarksMenuButton = this.leftViewContainer.createEl('button', {
 			text: 'Bookmarks',
 			cls: 'big-button '
 		});
@@ -112,7 +129,7 @@ export class EpubView extends FileView {
 		this.bookmarksMenuButton.prepend(bookmarkIcon);
 
 		// highlight
-		this.highlightsMenuButton = this.buttonContainer.createEl('button', {
+		this.highlightsMenuButton = this.leftViewContainer.createEl('button', {
 			text: 'Highlights',
 			cls: 'big-button '
 		})
@@ -121,7 +138,7 @@ export class EpubView extends FileView {
 		this.highlightsMenuButton.prepend(highlightIcon);
 
 		// note
-		this.notesMenuButton = this.buttonContainer.createEl('button', {
+		this.notesMenuButton = this.leftViewContainer.createEl('button', {
 			text: 'Notes',
 			cls: 'big-button '
 		});
@@ -130,7 +147,7 @@ export class EpubView extends FileView {
 		this.notesMenuButton.prepend(notesIcon);
 
 		// page information
-		this.pageInfo = this.epubContainer.createEl('div', {text: '100', cls: 'page-info'});
+		this.pageInfo = this.epubContainer.createEl('div', {cls: 'page-info'});
 
 		// epub buttons
 		const buttonStyle = `
@@ -158,45 +175,65 @@ export class EpubView extends FileView {
 		// auto hide button
 		// set auto hide after timeout
 		this.debounceHideButton = debounce(() => {
-			this.menuContainer.classList.add('hide-button');
+			this.leftViewContainer.classList.add('hide-button');
 			this.pageInfo.classList.add('hide-button');
 
 
 		}, this.buttonTimeoutReset, true);
 
 		// click listeners
+		// this.showMenu(this.rendition.getContents(), this.rendition.book, {x: 0, y: 0});
+		this.copyPageLinkButton.addEventListener('click', async (e) => {
+			if (!this.file) return;
+			const link = `[[${this.file.path}#${this.currentCfi}|${this.getChapterName(this.rendition.book, this.currentCfi)}]]`
+			await navigator.clipboard.writeText(link);
+		})
+		this.contextMenu.addEventListener('click', (e) => {
+			console.log('click', this.currentSelectedCfi);
+
+			this.addAnnotation(this.currentSelectedCfi, 'red');
+			this.rendition.getContents().window.getSelection()?.removeAllRanges();
+			this.currentSelectedCfi = null;
+
+			this.plugin.addHighlight(
+				this.file,
+				this.currentCfi,
+				'red',
+				this.getCurrentSelectedText(this.rendition.getContents())
+			);
+
+
+			// this.showMenu(this.rendition.getContents(), this.rendition.book, {x: e.x, y: e.y})
+		});
+		this.bookmarkFlag.addEventListener('click', (e) => {
+
+		})
+
 		this.chapterMenuButton.addEventListener('click', async (e) => {
 
 			new ChaptersList(this.app, this.chapters, async (cfi: string) => {
-				console.log('go to', cfi);
-				// await this.rendition.display(cfi);
-				this.jumpToCfi(cfi);
 				this.pushHistory(this.currentCfi);
+				this.jumpToCfi(cfi);
+
 			}).open();
 		});
 
 		this.backNavigationButton.addEventListener('click', async (e) => {
 			if (this.linkHistory.length > 0 && this.rendition) {
 				const lastCfi = this.linkHistory[this.linkHistory.length - 1];
-				console.log(lastCfi)
 				this.jumpToCfi(lastCfi);
-				// await this.rendition.book.ready
-				// await this.rendition.display(lastCfi);
-				// this.rendition.once("rendered", () => {
-				// 	this.rendition.display(lastCfi);
-				// });
-				// this.debounceRenderDisplay(lastCfi);
-				// await this.rendition.display(lastCfi);
 				this.linkHistory.remove(lastCfi);
 				this.restBackNavigationButton();
 			}
 		});
 
 		this.addBookmarkButton.addEventListener('click', async (e) => {
-			const pageNo = this.rendition.book.locations.locationFromCfi(this.currentCfi);
+			// const pageNo = this.rendition.book.locations.locationFromCfi(this.currentCfi);
+			const pageNo = this.getCurrentPageNo(this.rendition.book);
 			const chapterName = this.getChapterName(this.rendition.book, this.currentCfi);
 			const content = `${chapterName}|${pageNo}`;
-			this.plugin.addBookmark(this.file, this.currentCfi, content);
+			console.log(pageNo);
+			this.plugin.addBookmark(this.file, this.currentCfi, pageNo, content);
 		})
 
 		this.bookmarksMenuButton.addEventListener('click', async (e) => {
@@ -206,9 +243,7 @@ export class EpubView extends FileView {
 			this.showHighlights();
 		})
 
-
 		this.autoHideButton();
-
 
 	}
 
@@ -246,8 +281,8 @@ export class EpubView extends FileView {
 		for (const bookmark of bookmarks) {
 			const parts = bookmark.split('|');
 			const cfi = parts[0];
-			const label = parts[1];
-			const pageNo = parts[2];
+			const pageNo = parts[1];
+			const label = parts[2];
 			const chapter: Chapter = {
 				id: bookmark,
 				label: `${label} ${pageNo}`,
@@ -279,12 +314,14 @@ export class EpubView extends FileView {
 		this.restBackNavigationButton();
 
 		// reveal if not visible
-		if (this.menuContainer.classList.contains('hide-button')) {
-			this.menuContainer.classList.remove('hide-button');
+		// menu container
+		if (this.leftViewContainer.classList.contains('hide-button')) {
+			this.leftViewContainer.classList.remove('hide-button');
 		} else {
-			this.menuContainer.classList.add('hide-button');
+			this.leftViewContainer.classList.add('hide-button');
 		}
 
+		// page info
 		if (this.pageInfo.classList.contains('hide-button')) {
 			this.pageInfo.classList.remove('hide-button');
 		} else {
@@ -378,6 +415,7 @@ export class EpubView extends FileView {
 
 		return super.onLoadFile(file);
 	}
+
 
 	async loadBookMap(book: Book) {
 		if (!this.file) return
@@ -480,7 +518,7 @@ export class EpubView extends FileView {
 
 	onPageChangeListener(rendition: Rendition) {
 		const timeout = 1000;
-		const debounceUpdatePage = debounce((book: Book) => {
+		const debounceUpdateUI = debounce((book: Book) => {
 			this.updateProgressUI(book);
 		}, timeout, true);
 
@@ -491,12 +529,39 @@ export class EpubView extends FileView {
 			const cfiStart = location.start.cfi;
 			const cfiEnd = location.end.cfi;
 			this.currentCfi = cfiStart;
-			this.debounceUpdatePage(this.file, rendition.currentLocation().cfi);
-
+			this.debounceUpdatePage(this.file, cfiStart);
 			// this.updateProgressUI(rendition.book);
-
-			debounceUpdatePage(this.rendition.book);
+			debounceUpdateUI(this.rendition.book);
 		});
+	}
+
+	async updateBookmarkFlag(currentPageNo: number) {
+		const bookmarks: string[] = await this.plugin.getAllBookmarks(this.file);
+
+
+		let bookmarked = false;
+
+		for (const bookmark of bookmarks) {
+			const parts = bookmark.split('|');
+			const cfi = parts[0];
+			const pageNo = Number(parts[1]);
+			const label = parts[2];
+
+			console.log(`[${pageNo}] ${label}`);
+
+			if (pageNo === currentPageNo) {
+				bookmarked = true;
+			}
+		}
+
+
+		if (bookmarked) {
+			if (this.bookmarkFlag.classList.contains('hide-button')) {
+				this.bookmarkFlag.removeClass('hide-button');
+			}
+		} else {
+			this.bookmarkFlag.addClass('hide-button');
+		}
 	}
 
 	updateProgressUI(book: Book) {
@@ -513,10 +578,41 @@ export class EpubView extends FileView {
 		// console.log("cfi", cfi);
 		// this.pageInfo.innerText = pageNo.toString();
 		//
+		// const currentLocation = this.rendition.currentLocation();
+		// const sectionIndex = (currentLocation as any).start.index;
+		// const sectionPages = (currentLocation as any).start.displayed.total;
+		// const sectionBaseCFI = book.spine.get(sectionIndex).cfiBase;
+		//
+		// const sectionStartLocation = (book.locations as any)._locations.findIndex((item: any) =>
+		// 	item.startsWith("epubcfi(" + sectionBaseCFI)
+		// );
+		// const sectionLocations = (book.locations as any)._locations.filter((item: any) =>
+		// 	item.startsWith("epubcfi(" + sectionBaseCFI)
+		// ).length;
+		//
+		// const totalLocations = book.locations.length();
+		// const estPages = Math.round((totalLocations * sectionPages) / sectionLocations);
+		// const estSectionStartPage =
+		// 	estPages * (sectionStartLocation / totalLocations);
+		// const estCurrentPage =
+		// 	Math.round(estSectionStartPage + (currentLocation as any).start.displayed.page);
+
+		const estPages = this.getTotalPages(book);
+		const estCurrentPage = this.getCurrentPageNo(book);
+		const progress = Math.round((estCurrentPage / estPages) * 100);
+
+		console.log('estCurrentPage', estCurrentPage);
+		this.pageInfo.innerText = `${estCurrentPage} of ${estPages} | ${progress}%`;
+		this.updateBookmarkFlag(estCurrentPage)
+
+	}
+
+	getCurrentPageNo(book: Book) {
 		const currentLocation = this.rendition.currentLocation();
 		const sectionIndex = (currentLocation as any).start.index;
 		const sectionPages = (currentLocation as any).start.displayed.total;
 		const sectionBaseCFI = book.spine.get(sectionIndex).cfiBase;
+
 
 		const sectionStartLocation = (book.locations as any)._locations.findIndex((item: any) =>
 			item.startsWith("epubcfi(" + sectionBaseCFI)
@@ -529,13 +625,22 @@ export class EpubView extends FileView {
 		const estPages = Math.round((totalLocations * sectionPages) / sectionLocations);
 		const estSectionStartPage =
 			estPages * (sectionStartLocation / totalLocations);
-		const estCurrentPage =
-			Math.round(estSectionStartPage + (currentLocation as any).start.displayed.page);
+		return Math.round(estSectionStartPage + (currentLocation as any).start.displayed.page);
+	}
 
-		const progress = Math.round((estCurrentPage / estPages) * 100);
+	getTotalPages(book: Book) {
+		const currentLocation = this.rendition.currentLocation();
+		const sectionIndex = (currentLocation as any).start.index;
+		const sectionPages = (currentLocation as any).start.displayed.total;
+		const sectionBaseCFI = book.spine.get(sectionIndex).cfiBase;
 
-		console.log('estCurrentPage', estCurrentPage);
-		this.pageInfo.innerText = `${estCurrentPage} of ${estPages} | ${progress}%`;
+
+		const sectionLocations = (book.locations as any)._locations.filter((item: any) =>
+			item.startsWith("epubcfi(" + sectionBaseCFI)
+		).length;
+
+		const totalLocations = book.locations.length();
+		return Math.round((totalLocations * sectionPages) / sectionLocations);
 
 	}
 
@@ -543,6 +648,10 @@ export class EpubView extends FileView {
 		rendition.on("selected", (cfiRange: string, contents: Contents) => {
 			this.currentSelectedCfi = cfiRange;
 			console.log('on select', this.currentSelectedCfi);
+			if (this.contextMenu.classList.contains('hide-button')) {
+				this.contextMenu.classList.remove('hide-button');
+			}
+
 		});
 	}
 
@@ -576,10 +685,11 @@ export class EpubView extends FileView {
 
 			if (!selectedText) {
 				this.handleGesture(touchStartX, touchEndX, touchStartY, touchEndY);
-			} else {
-				console.error('selected', selectedText);
-				this.showMenu(contents, this.rendition.book, {x: 0, y: 0});
 			}
+			// else {
+			// 	console.error('selected', selectedText);
+			// 	this.showMenu(contents, this.rendition.book, {x: 0, y: 0});
+			// }
 
 		});
 
@@ -639,7 +749,13 @@ export class EpubView extends FileView {
 		contents.document.addEventListener('mouseup', (e: MouseEvent) => {
 			if (!isDragging) {
 				// stationary click
-				this.autoHideButton();
+				if (!contents.document.getSelection()?.toString()) {
+					this.autoHideButton();
+				}
+				// show context menu button
+				if (!this.contextMenu.classList.contains('hide-button')) {
+					this.contextMenu.classList.add('hide-button');
+				}
 			} else {
 				// selection or drag
 			}
@@ -701,14 +817,14 @@ export class EpubView extends FileView {
 		})
 	}
 
-	showMenu(contents: Contents, book: Book, position: { x: number, y: number }) {
+	showMenu(contents: Contents | null, book: Book, position: { x: number, y: number }) {
 
 		getContextMenu(this.getCurrentSelectedText(contents),
 			// highlight
 			async () => {
 				console.log(this.currentSelectedCfi);
 				if (this.currentSelectedCfi) {
-					this.onAddAnnotation(this.currentCfi, 'red');
+					this.addAnnotation(this.currentCfi, 'red');
 					contents.window.getSelection()?.removeAllRanges();
 					this.currentSelectedCfi = null;
 
@@ -724,9 +840,10 @@ export class EpubView extends FileView {
 			// bookmark
 			() => {
 				const chapterName = this.getChapterName(book, this.currentCfi);
-				const pageNo = book.locations.locationFromCfi(this.currentCfi);
+				// const pageNo = book.locations.locationFromCfi(this.currentCfi);
+				const pageNo = this.getCurrentPageNo(book);
 				const content = `${chapterName}|${pageNo}`;
-				this.plugin.addBookmark(this.file, this.currentCfi, content);
+				this.plugin.addBookmark(this.file, this.currentCfi, pageNo, content);
 			},
 			// notes
 			() => {
@@ -864,12 +981,12 @@ export class EpubView extends FileView {
 			const cfi = data[0];
 			const color = data[1] ? data[1] : 'yellow';
 
-			this.onAddAnnotation(cfi, color);
+			this.addAnnotation(cfi, color);
 
 		}
 	}
 
-	onAddAnnotation(cfiRange: string, color: string) {
+	addAnnotation(cfiRange: string, color: string) {
 
 		console.log(`cfiRange : ${cfiRange}, color: ${color}`);
 		this.rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
@@ -904,9 +1021,11 @@ export class EpubView extends FileView {
 	async goToLastReadingPage() {
 		if (!this.file) return;
 		if (this.passedCfi) {
-			await this.rendition.display(this.passedCfi);
-			await this.rendition.display(this.passedCfi);
+			// await this.rendition.display(this.passedCfi);
+			// await this.rendition.display(this.passedCfi);
 			this.loading.style.display = 'none';
+			this.jumpToCfi(this.passedCfi);
+
 			return;
 		} else {
 			const markdownFile = await this.plugin.getMarkdownFile(this.file);
@@ -1017,8 +1136,15 @@ export class EpubView extends FileView {
 
 	async jumpToCfi(cfi: string) {
 		this.rendition.display(cfi).then(() => {
-			this.rendition.once("rendered", () => {
-				this.rendition.display(cfi);
+			this.rendition.once("rendered", async () => {
+				this.rendition.display(cfi).then(()=>{
+					this.rendition.display(cfi).then(() => {
+						this.rendition.display(cfi).then(() => {
+							this.rendition.display(cfi)
+						})
+					})
+				});
+				console.log('jump to ', cfi)
 			});
 		});
 	}
@@ -1078,6 +1204,7 @@ export class EpubView extends FileView {
 			// }, 1000);
 			//
 			// delayJump();
+			console.log('passedCfi', state.subpath);
 			this.jumpToCfi(this.passedCfi);
 
 
