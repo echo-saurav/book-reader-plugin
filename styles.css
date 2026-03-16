@@ -3,8 +3,6 @@
 	margin-top: 0 !important;
 }
 
-/*.is-mobile*/
-
 .epub-container {
 	height: 100%;
 	width: 100%;
@@ -15,6 +13,7 @@
 	--bottom-margin: 150px;
 	--small-bottom-margin: 50px;
 	--common-margin: 30px;
+	--common-margin-small: 10px;
 	--button-size: 40px;
 	--menu-container: 200px;
 	--button-margin: 5px;
@@ -41,41 +40,38 @@
 	justify-content: center;
 }
 
-.main-menu {
-	position: fixed;
-	bottom: 0;
-	right: 0;
-	margin-bottom: var(--bottom-margin);
-	margin-right: var(--common-margin);
-}
-
 .menu-container {
-	position: fixed;
-	bottom: 0;
-	left: 0;
 	margin-left: var(--common-margin);
-	/*margin-bottom: var(--navbar-height);*/
-	margin-bottom: calc(140px + var(--navbar-height));
-	/*margin-right: var(--common-margin);*/
-
-	height: var(--menu-container);
-	/*width: 100%;*/
-	background: rgba(0, 0, 0, .5);
 	transition: all .2s;
 }
 
 .button-container {
 	display: flex;
-	align-items: start;
-	justify-content: center;
-	/*background-color: blue;*/
 	flex-direction: column;
+	align-items: flex-start;
 
 	position: absolute;
-	top: 0;
+	bottom: 0;
 	left: 0;
 
+	height: auto;
+	max-height: 80vh;
 }
+
+.is-mobile .button-container {
+	margin-left: var(--common-margin-small);
+	margin-bottom: calc(calc(var(--navbar-bottom-offset) - var(--keyboard-height) - 2px) + var(--navbar-height));
+}
+
+.is-mobile.is-tablet .button-container {
+	margin-left: var(--common-margin);
+}
+
+body:not(.is-mobile) .button-container {
+	margin-bottom: var(--common-margin);
+	margin-left: var(--common-margin);
+}
+
 
 .hide-button {
 	opacity: 0;
@@ -83,66 +79,10 @@
 }
 
 
-.next {
-	position: fixed;
-	bottom: 0;
-	right: 0;
-	margin: var(--common-margin);
-}
-
-
-.prev {
-	position: fixed;
-	bottom: 0;
-	left: 0;
-	margin: var(--common-margin);
-}
-
-.nav-back {
-	position: fixed;
-	bottom: 0;
-	left: 0;
-	margin-bottom: var(--bottom-margin);
-	margin-left: var(--common-margin);
-}
-
-/*.chapter-menu {*/
-/*	position: fixed;*/
-/*	bottom: 0;*/
-/*	left: 0;*/
-/*	margin-bottom: var(--bottom-margin);*/
-/*	margin-left: var(--common-margin);*/
-/*}*/
-
-.chapter-menu {
-	position: absolute;
-	top: 0;
-	right: 0;
-	margin: var(--common-margin);
-}
-
-.big-button {
-	/*border-radius: 50%;*/
-	box-shadow: 0 0 10px rgba(0, 0, 0, 0.7) !important;
-	transition: all .2s;
-	/*background: var(--background-primary);*/
-	background: var(--raised-background);
-
-	/*center svg*/
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-direction: row;
-
-
-	margin: var(--button-margin);
-}
-
 .small-button {
 	width: var(--button-size);
 	height: var(--button-size);
-	/*background: var(--raised-background);*/
-	box-shadow: 0 0 5px rgba(0, 0, 0, 0.7) !important;
+	box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.8) !important;
 	border-radius: 50%;
 	transition: all .2s;
 	margin: var(--button-margin);
@@ -151,6 +91,19 @@
 	align-items: center;
 	justify-content: center;
 	padding: 0 !important;
+}
+
+.big-button {
+	box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.8) !important;
+	transition: all .2s;
+	background: var(--raised-background);
+	/*center svg*/
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: row;
+
+	margin: var(--button-margin);
 }
 
 
@@ -164,42 +117,58 @@
 }
 
 .page-info {
+	/*center */
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	/*center */
 	left: 50%;
-	/*top: calc(var(--view-top-spacing) + 1rem);*/
-	/*top: calc(var(--view-header-height) + var(--view-header-top-offset) + 1rem);*/
-	top: calc(var(--view-header-height) + 5rem);
 	transform: translateX(-50%);
-
+	/*style*/
 	border-radius: 10px;
 	background: var(--raised-background);
 	z-index: 1000;
 
-	box-shadow: 0 0 10px rgba(0, 0, 0, 0.7) !important;
+	box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.8) !important;
 	transition: all .2s;
 
 	position: absolute;
 	min-width: 100px;
 	padding: 5px;
-
 }
 
+.is-mobile.is-tablet .page-info {
+	top: calc(var(--header-height) + 1rem);
+}
+
+.is-mobile .page-info {
+	top: calc(var(--view-header-height) + var(--header-height) + 1.5rem);
+}
+
+body:not(.is-mobile) .page-info {
+	top: calc(var(--header-height) + var(--header-height));
+}
+
+
 .loading {
+	/*center*/
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	left: 50%;
 	top: 50%;
 	transform: translateX(-50%);
-
+	/*fixed position*/
 	position: absolute;
 	z-index: 1000;
-
+	/*text*/
 	font-size: 20px;
-	color: white;
+	color: var(--text-accent);
 	text-align: center;
+	background: var(--background-primary);
+}
 
+.is-mobile.is-floating-nav.is-phone:has(.epub-container)  .view-header{
+	padding-top: calc( var(--view-header-top-offset));
+	margin-top: 0;
+	background: var(--background-primary);
 }
