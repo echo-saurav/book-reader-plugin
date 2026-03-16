@@ -536,6 +536,7 @@ export class EpubView extends FileView {
 	}
 
 	async updateBookmarkFlag(currentPageNo: number) {
+		if (!this.file) return;
 		const bookmarks: string[] = await this.plugin.getAllBookmarks(this.file);
 
 
@@ -817,7 +818,7 @@ export class EpubView extends FileView {
 		})
 	}
 
-	showMenu(contents: Contents | null, book: Book, position: { x: number, y: number }) {
+	showMenu(contents: Contents, book: Book, position: { x: number, y: number }) {
 
 		getContextMenu(this.getCurrentSelectedText(contents),
 			// highlight
@@ -986,7 +987,8 @@ export class EpubView extends FileView {
 		}
 	}
 
-	addAnnotation(cfiRange: string, color: string) {
+	addAnnotation(cfiRange: string | null, color: string) {
+		if (!cfiRange) return
 
 		console.log(`cfiRange : ${cfiRange}, color: ${color}`);
 		this.rendition.annotations.add('highlight', cfiRange, {}, (ev: any) => {
@@ -1137,7 +1139,7 @@ export class EpubView extends FileView {
 	async jumpToCfi(cfi: string) {
 		this.rendition.display(cfi).then(() => {
 			this.rendition.once("rendered", async () => {
-				this.rendition.display(cfi).then(()=>{
+				this.rendition.display(cfi).then(() => {
 					this.rendition.display(cfi).then(() => {
 						this.rendition.display(cfi).then(() => {
 							this.rendition.display(cfi)
