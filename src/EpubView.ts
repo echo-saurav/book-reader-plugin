@@ -188,19 +188,21 @@ export class EpubView extends FileView {
 			const link = `[[${this.file.path}#${this.currentCfi}|${this.getChapterName(this.rendition.book, this.currentCfi)}]]`
 			await navigator.clipboard.writeText(link);
 		})
-		this.contextMenu.addEventListener('click', (e) => {
+		this.contextMenu.addEventListener('click', async (e) => {
 			console.log('click', this.currentSelectedCfi);
 
 			this.addAnnotation(this.currentSelectedCfi, 'red');
-			this.rendition.getContents().window.getSelection()?.removeAllRanges();
-			this.currentSelectedCfi = null;
 
-			this.plugin.addHighlight(
+			await this.plugin.addHighlight(
 				this.file,
-				this.currentCfi,
+				this.currentSelectedCfi,
 				'red',
 				this.getCurrentSelectedText(this.rendition.getContents())
 			);
+
+
+			this.rendition.getContents()?.window?.getSelection()?.removeAllRanges();
+			this.currentSelectedCfi = null;
 
 
 			// this.showMenu(this.rendition.getContents(), this.rendition.book, {x: e.x, y: e.y})
@@ -234,6 +236,7 @@ export class EpubView extends FileView {
 			const content = `${chapterName}|${pageNo}`;
 			console.log(pageNo);
 			this.plugin.addBookmark(this.file, this.currentCfi, pageNo, content);
+			this.updateProgressUI(this.rendition.book);
 		})
 
 		this.bookmarksMenuButton.addEventListener('click', async (e) => {
@@ -653,14 +656,33 @@ export class EpubView extends FileView {
 				this.contextMenu.classList.remove('hide-button');
 			}
 
+			// left
+			if (!this.leftViewContainer.classList.contains('hide-button')) {
+				this.leftViewContainer.classList.add('hide-button');
+			}
+
+			// page info
+			if (!this.pageInfo.classList.contains('hide-button')) {
+				this.pageInfo.classList.add('hide-button');
+			}
+
+			//
+			if (!document.body.classList.contains('is-hidden-nav')) {
+				document.body.classList.add('is-hidden-nav');
+			}
+
+
 		});
 	}
 
 	getCurrentSelectedText(contents: Contents) {
-		const text = contents.document.getSelection();
-		if (text) {
-			return text.toString().trim();
+		if (contents.document && contents.document.getSelection()) {
+			const text = contents.document.getSelection();
+			if (text) {
+				return text.toString().trim();
+			}
 		}
+
 		return '';
 
 	}
@@ -845,6 +867,7 @@ export class EpubView extends FileView {
 				const pageNo = this.getCurrentPageNo(book);
 				const content = `${chapterName}|${pageNo}`;
 				this.plugin.addBookmark(this.file, this.currentCfi, pageNo, content);
+				this.updateProgressUI(book);
 			},
 			// notes
 			() => {
@@ -996,7 +1019,12 @@ export class EpubView extends FileView {
 
 			menu.addItem(item => {
 				item.setTitle("Delete").setIcon("delete").onClick(() => {
-					this.plugin.deleteHighlight(this.file, cfiRange);
+					if (color) {
+						this.plugin.deleteHighlight(this.file, `${cfiRange}|${color}|`);
+					} else {
+						this.plugin.deleteHighlight(this.file, `${cfiRange}|`);
+					}
+
 					this.rendition.annotations.remove(cfiRange, 'highlight');
 				})
 			})

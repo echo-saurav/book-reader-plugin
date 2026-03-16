@@ -118,9 +118,7 @@ export default class BookReader extends Plugin {
 		// const newHighlight = `${cfiRange}|${color}`;
 		console.log(newHighlight);
 		this.pushDataToFrontmatter(bookFile, this.settings.highlightsKey, newHighlight);
-		// append to file
-		const highlightLink = `[[${bookFile?.path}#${cfiRange}|${content}]]`
-		this.appendToFile(bookFile, highlightLink);
+
 	}
 
 	async addBookmark(bookFile: TFile | null, cfi: string, pageNo: number, content: string | null) {
@@ -171,6 +169,7 @@ export default class BookReader extends Plugin {
 	// delete data
 	async deleteHighlight(bookFile: TFile | null, highlight: string) {
 		if (!bookFile) return
+		console.log("delete",highlight);
 		this.removeDataFromFrontmatter(bookFile, this.settings.highlightsKey, highlight);
 	}
 
