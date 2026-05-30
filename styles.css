@@ -208,3 +208,12 @@ body:not(.is-mobile) .right-view-container {
 .bookmark-flag {
 	background: var(--color-red) !important;
 }
+
+.setting-text-area {
+	display: block !important;
+}
+
+.setting-text-area textarea {
+	width: 100%;
+}
+

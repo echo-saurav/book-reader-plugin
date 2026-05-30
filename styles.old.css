@@ -1,0 +1,155 @@
+.epub-view-container{
+
+}
+
+@keyframes appear-animation {
+	0% {
+		opacity: 0;
+	}
+	10% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+.epub-button {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	background: var(--background-secondary);
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.5) !important;
+	transition: all .2s;
+	margin: 5px;
+
+	/*center svg*/
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.epub-button:hover {
+	box-shadow: 0 0 1px rgba(0, 0, 0, 0.5) !important;
+	background: var(--background-primary);
+}
+
+.current-bookmark {
+	background: red;
+}
+
+.last-ref-button {
+	position: absolute;
+	top: 0;
+	left: 0;
+	margin: 50px;
+	z-index: 100;
+}
+
+.epub-menu-container {
+	width: 40px;
+	/*height: 200px;*/
+	/*background: red;*/
+
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	margin: 70px;
+	z-index: 100;
+
+	/*display: flex;*/
+	/*align-items: center;*/
+	/*justify-content: center;*/
+
+}
+
+.view-content:has(.epub-view) {
+	margin: 0;
+	padding: 0;
+}
+
+.epub-view {
+	margin: 0;
+	padding: 0;
+	height: 100vh;
+	width: 100%;
+}
+
+.empty-space {
+	width: 100%;
+	height: 300px;
+	background: red;
+}
+
+
+.epub-view * {
+	font-family: inherit !important;
+	color: inherit !important;
+	line-height: inherit !important;
+}
+
+
+.epub-view__next-button {
+	width: 40px;
+	height: 40px;
+
+	/*background: blue;*/
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: 0;
+	margin: auto;
+	z-index: 100;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.epub-view__previous-button {
+	width: 40px;
+	height: 40px;
+
+	/*background: green;*/
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	margin: auto;
+	z-index: 100;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+
+.epub-view-bottom-bar {
+	width: 100px;
+	height: 30px;
+
+	font-size: var(--font-smaller);
+	font-weight: bold;
+	color: var(--text-faint) !important;
+
+	position: absolute;
+	left: 50%;
+	bottom: 70px; /* distance from bottom */
+	transform: translateX(-50%);
+
+	z-index: 100;
+
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	border-radius: 20px;
+
+	background: var(--background-secondary);
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.5) !important;
+
+}
